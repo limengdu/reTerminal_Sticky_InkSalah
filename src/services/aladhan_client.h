@@ -9,3 +9,7 @@
 esp_err_t aladhan_fetch_two_month_schedule(const SalahSettings &settings,
                                            const PrayerDate &current_date,
                                            PrayerSchedule &schedule);
+
+// Confirms that one city/country pair returns all required prayer times.
+// 确认国家和城市组合能够返回完整的礼拜时间。
+esp_err_t aladhan_validate_location(const SalahSettings &settings);

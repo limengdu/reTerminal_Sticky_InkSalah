@@ -15,6 +15,7 @@ namespace {
 
 constexpr char kTag[] = "aladhan_client";
 constexpr size_t kResponseCapacity = 128U * 1024U;
+constexpr size_t kValidationResponseCapacity = 16U * 1024U;
 
 struct ResponseBuffer {
     char *data = nullptr;
@@ -206,6 +207,36 @@ esp_err_t parse_calendar(const char *json, PrayerSchedule &schedule)
     return result;
 }
 
+esp_err_t parse_validation_response(const char *json)
+{
+    cJSON *root = cJSON_Parse(json);
+    if (root == nullptr) {
+        return ESP_ERR_INVALID_RESPONSE;
+    }
+    const cJSON *code = object_item(root, "code");
+    const cJSON *data = object_item(root, "data");
+    const cJSON *timings = object_item(data, "timings");
+    const cJSON *meta = object_item(data, "meta");
+    const cJSON *timezone = object_item(meta, "timezone");
+    const cJSON *latitude = object_item(meta, "latitude");
+    const cJSON *longitude = object_item(meta, "longitude");
+    uint16_t minutes = 0U;
+    const bool valid = cJSON_IsNumber(code) && code->valueint == 200 &&
+                       cJSON_IsObject(timings) &&
+                       cJSON_IsString(timezone) &&
+                       timezone->valuestring != nullptr &&
+                       timezone->valuestring[0] != '\0' &&
+                       cJSON_IsNumber(latitude) &&
+                       cJSON_IsNumber(longitude) &&
+                       parse_timing(timings, "Fajr", minutes) &&
+                       parse_timing(timings, "Dhuhr", minutes) &&
+                       parse_timing(timings, "Asr", minutes) &&
+                       parse_timing(timings, "Maghrib", minutes) &&
+                       parse_timing(timings, "Isha", minutes);
+    cJSON_Delete(root);
+    return valid ? ESP_OK : ESP_ERR_INVALID_RESPONSE;
+}
+
 esp_err_t fetch_month(const SalahSettings &settings,
                       uint16_t year,
                       uint8_t month,
@@ -275,6 +306,70 @@ esp_err_t fetch_month(const SalahSettings &settings,
 }
 
 }  // namespace
+
+esp_err_t aladhan_validate_location(const SalahSettings &settings)
+{
+    app_log_register_tag(kTag);
+    if (!settings_store_valid(settings)) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    char city[160] = {};
+    char country[160] = {};
+    if (!url_encode(settings.city, city, sizeof(city)) ||
+        !url_encode(settings.country, country, sizeof(country))) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    char url[512] = {};
+    const int url_length = std::snprintf(
+        url,
+        sizeof(url),
+        "https://api.aladhan.com/v1/timingsByCity?city=%s&country=%s&method=%u&school=%u",
+        city,
+        country,
+        static_cast<unsigned>(settings.calculation_method),
+        static_cast<unsigned>(settings.asr_school));
+    if (url_length <= 0 || static_cast<size_t>(url_length) >= sizeof(url)) {
+        return ESP_ERR_INVALID_SIZE;
+    }
+
+    ResponseBuffer response = {};
+    response.data = static_cast<char *>(heap_caps_malloc(
+        kValidationResponseCapacity, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
+    if (response.data == nullptr) {
+        return ESP_ERR_NO_MEM;
+    }
+    response.capacity = kValidationResponseCapacity;
+    response.data[0] = '\0';
+    esp_http_client_config_t config = {};
+    config.url = url;
+    config.event_handler = http_event_handler;
+    config.user_data = &response;
+    config.crt_bundle_attach = esp_crt_bundle_attach;
+    config.timeout_ms = 15000;
+    config.buffer_size = 2048;
+    config.buffer_size_tx = 1024;
+    esp_http_client_handle_t client = esp_http_client_init(&config);
+    if (client == nullptr) {
+        heap_caps_free(response.data);
+        return ESP_ERR_NO_MEM;
+    }
+    esp_err_t result = esp_http_client_perform(client);
+    const int status = esp_http_client_get_status_code(client);
+    esp_http_client_cleanup(client);
+    if (result == ESP_OK && status == 200 && !response.overflow) {
+        result = parse_validation_response(response.data);
+    } else if (result == ESP_OK) {
+        result = status >= 400 && status < 500
+                     ? ESP_ERR_INVALID_RESPONSE
+                     : ESP_ERR_HTTP_FETCH_HEADER;
+    }
+    heap_caps_free(response.data);
+    STICKY_LOGI(kTag,
+                "location=validate status=%d result=%s",
+                status,
+                esp_err_to_name(result));
+    return result;
+}
 
 esp_err_t aladhan_fetch_two_month_schedule(const SalahSettings &settings,
                                            const PrayerDate &current_date,

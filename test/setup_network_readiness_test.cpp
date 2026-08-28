@@ -14,6 +14,12 @@ int main()
     assert(!setup_network_ready(state));
 
     state.expected_ip_configured = true;
+    assert(!setup_network_ready(state));
+
+    state.dns_server_offered = true;
+    assert(!setup_network_ready(state));
+
+    state.portal_uri_configured = true;
     assert(setup_network_ready(state));
     return 0;
 }

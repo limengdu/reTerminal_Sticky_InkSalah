@@ -14,6 +14,34 @@ cd "${PROJECT_ROOT}"
 
 passed_count=0
 
+check_http_header_capacity() {
+    local minimum_length=4096
+    local config_path
+    local configured_length
+    local config_paths=("sdkconfig.defaults")
+    local generated_config_paths=(
+        "sdkconfig.sticky-salah-debug"
+        "sdkconfig.sticky-salah-release"
+    )
+
+    for config_path in "${generated_config_paths[@]}"; do
+        if [[ -f "${config_path}" ]]; then
+            config_paths+=("${config_path}")
+        fi
+    done
+
+    echo "[host-test] http_header_capacity_test"
+    for config_path in "${config_paths[@]}"; do
+        configured_length="$(sed -n 's/^CONFIG_HTTPD_MAX_REQ_HDR_LEN=//p' "${config_path}")"
+        if [[ ! "${configured_length}" =~ ^[0-9]+$ ]] ||
+            (( configured_length < minimum_length )); then
+            echo "${config_path}: CONFIG_HTTPD_MAX_REQ_HDR_LEN must be at least ${minimum_length}" >&2
+            return 1
+        fi
+    done
+    passed_count=$((passed_count + 1))
+}
+
 compile_and_run() {
     local test_name="$1"
     shift
@@ -23,6 +51,8 @@ compile_and_run() {
     "${BUILD_DIR}/${test_name}"
     passed_count=$((passed_count + 1))
 }
+
+check_http_header_capacity
 
 compile_and_run prayer_time_test \
     -Isrc/prayer \
@@ -59,4 +89,19 @@ compile_and_run setup_network_readiness_test \
     test/setup_network_readiness_test.cpp \
     src/network/setup_network_readiness.cpp
 
-echo "[host-test] PASS ${passed_count}/6"
+compile_and_run captive_dns_protocol_test \
+    -Isrc/network \
+    test/captive_dns_protocol_test.cpp \
+    src/network/captive_dns_protocol.cpp
+
+compile_and_run wifi_scan_model_test \
+    -Isrc/network \
+    test/wifi_scan_model_test.cpp \
+    src/network/wifi_scan_model.cpp
+
+compile_and_run location_catalog_test \
+    -Isrc/location \
+    test/location_catalog_test.cpp \
+    src/location/location_catalog.cpp
+
+echo "[host-test] PASS ${passed_count}/10"

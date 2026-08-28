@@ -1,5 +1,6 @@
 #include "wifi_service.h"
 
+#include <algorithm>
 #include <atomic>
 #include <cstdio>
 #include <cstring>
@@ -30,6 +31,7 @@ esp_netif_t *s_ap_netif = nullptr;
 bool s_initialized = false;
 std::atomic<uint8_t> s_connect_attempts{0U};
 std::atomic<bool> s_connected{false};
+std::atomic<bool> s_connect_enabled{false};
 
 void wifi_event_handler(void *,
                         esp_event_base_t base,
@@ -62,12 +64,17 @@ void wifi_event_handler(void *,
         return;
     }
     if (base == WIFI_EVENT && id == WIFI_EVENT_STA_START) {
-        s_connect_attempts.store(1U, std::memory_order_release);
-        esp_wifi_connect();
+        if (s_connect_enabled.load(std::memory_order_acquire)) {
+            s_connect_attempts.store(1U, std::memory_order_release);
+            esp_wifi_connect();
+        }
         return;
     }
     if (base == WIFI_EVENT && id == WIFI_EVENT_STA_DISCONNECTED) {
         s_connected.store(false, std::memory_order_release);
+        if (!s_connect_enabled.load(std::memory_order_acquire)) {
+            return;
+        }
         const uint8_t attempt = s_connect_attempts.fetch_add(
             1U, std::memory_order_acq_rel);
         if (attempt < kMaxConnectAttempts) {
@@ -165,10 +172,12 @@ esp_err_t wifi_service_connect(const SalahSettings &settings,
         return ESP_ERR_INVALID_ARG;
     }
     ESP_RETURN_ON_ERROR(wifi_service_init(), kTag, "initialize wifi");
+    s_connect_enabled.store(false, std::memory_order_release);
     ESP_RETURN_ON_ERROR(stop_wifi_if_running(), kTag, "stop previous mode");
     xEventGroupClearBits(s_events, kConnectedBit | kFailedBit);
     s_connect_attempts.store(0U, std::memory_order_release);
     s_connected.store(false, std::memory_order_release);
+    s_connect_enabled.store(true, std::memory_order_release);
 
     wifi_config_t config = {};
     std::strncpy(reinterpret_cast<char *>(config.sta.ssid),
@@ -214,6 +223,7 @@ esp_err_t wifi_service_start_setup_ap(char *ssid,
         return ESP_ERR_INVALID_ARG;
     }
     ESP_RETURN_ON_ERROR(wifi_service_init(), kTag, "initialize wifi");
+    s_connect_enabled.store(false, std::memory_order_release);
     ESP_RETURN_ON_ERROR(stop_wifi_if_running(), kTag, "stop previous mode");
     xEventGroupClearBits(s_events, kSetupApStartedBit);
 
@@ -239,9 +249,12 @@ esp_err_t wifi_service_start_setup_ap(char *ssid,
     config.ap.max_connection = 4U;
     config.ap.authmode = WIFI_AUTH_WPA2_PSK;
 
-    ESP_RETURN_ON_ERROR(esp_wifi_set_mode(WIFI_MODE_AP),
+    // APSTA keeps the setup hotspot available while the station side scans
+    // and validates the selected home network.
+    // APSTA让配网热点保持在线，同时由客户端侧扫描并验证用户选择的家庭网络。
+    ESP_RETURN_ON_ERROR(esp_wifi_set_mode(WIFI_MODE_APSTA),
                         kTag,
-                        "set access point mode");
+                        "set setup mode");
     ESP_RETURN_ON_ERROR(esp_wifi_set_config(WIFI_IF_AP, &config),
                         kTag,
                         "set access point config");
@@ -268,6 +281,22 @@ esp_err_t wifi_service_start_setup_ap(char *ssid,
                             kTag,
                             "pause DHCP server");
     }
+    esp_netif_dns_info_t dns_info = {};
+    dns_info.ip.type = ESP_IPADDR_TYPE_V4;
+    dns_info.ip.u_addr.ip4.addr = ESP_IP4TOADDR(192, 168, 4, 1);
+    ESP_RETURN_ON_ERROR(
+        esp_netif_set_dns_info(s_ap_netif, ESP_NETIF_DNS_MAIN, &dns_info),
+        kTag,
+        "set setup DNS address");
+    uint8_t dns_offer = 1U;
+    ESP_RETURN_ON_ERROR(
+        esp_netif_dhcps_option(s_ap_netif,
+                               ESP_NETIF_OP_SET,
+                               ESP_NETIF_DOMAIN_NAME_SERVER,
+                               &dns_offer,
+                               sizeof(dns_offer)),
+        kTag,
+        "offer setup DNS address");
     ESP_RETURN_ON_ERROR(
         esp_netif_dhcps_option(s_ap_netif,
                                ESP_NETIF_OP_SET,
@@ -283,6 +312,21 @@ esp_err_t wifi_service_start_setup_ap(char *ssid,
         esp_netif_dhcps_get_status(s_ap_netif, &dhcp_status),
         kTag,
         "verify DHCP status");
+    dns_offer = 0U;
+    ESP_RETURN_ON_ERROR(
+        esp_netif_dhcps_option(s_ap_netif,
+                               ESP_NETIF_OP_GET,
+                               ESP_NETIF_DOMAIN_NAME_SERVER,
+                               &dns_offer,
+                               sizeof(dns_offer)),
+        kTag,
+        "verify setup DNS offer");
+    esp_netif_dns_info_t configured_dns = {};
+    ESP_RETURN_ON_ERROR(
+        esp_netif_get_dns_info(
+            s_ap_netif, ESP_NETIF_DNS_MAIN, &configured_dns),
+        kTag,
+        "verify setup DNS address");
 
     esp_netif_ip_info_t ip_info = {};
     ESP_RETURN_ON_ERROR(esp_netif_get_ip_info(s_ap_netif, &ip_info),
@@ -294,18 +338,110 @@ esp_err_t wifi_service_start_setup_ap(char *ssid,
         dhcp_status == ESP_NETIF_DHCP_STARTED;
     readiness.expected_ip_configured =
         ip_info.ip.addr == ESP_IP4TOADDR(192, 168, 4, 1);
+    readiness.dns_server_offered =
+        dns_offer != 0U && configured_dns.ip.type == ESP_IPADDR_TYPE_V4 &&
+        configured_dns.ip.u_addr.ip4.addr == ESP_IP4TOADDR(192, 168, 4, 1);
+    readiness.portal_uri_configured = true;
     if (!setup_network_ready(readiness)) {
         STICKY_LOGW(kTag,
-                    "wifi=setup_ap state=not_ready dhcp=%d expected_ip=%d",
+                    "wifi=setup_ap state=not_ready dhcp=%d expected_ip=%d dns=%d portal_uri=%d",
                     readiness.dhcp_server_running,
-                    readiness.expected_ip_configured);
+                    readiness.expected_ip_configured,
+                    readiness.dns_server_offered,
+                    readiness.portal_uri_configured);
         return ESP_ERR_INVALID_STATE;
     }
     STICKY_LOGI(kTag,
-                "wifi=setup_ap ssid=%s address=192.168.4.1 dhcp=started portal_uri=%s result=ok",
+                "wifi=setup_ap ssid=%s address=192.168.4.1 dhcp=started dns=192.168.4.1 portal_uri=%s result=ok",
                 ssid,
                 kSetupPortalUri);
     return ESP_OK;
+}
+
+esp_err_t wifi_service_scan_networks(WifiScanList &list)
+{
+    if (!s_initialized || s_ap_netif == nullptr) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    list = {};
+    wifi_scan_config_t scan_config = {};
+    scan_config.show_hidden = false;
+    ESP_RETURN_ON_ERROR(esp_wifi_scan_start(&scan_config, true),
+                        kTag,
+                        "scan nearby networks");
+    uint16_t available = 0U;
+    ESP_RETURN_ON_ERROR(esp_wifi_scan_get_ap_num(&available),
+                        kTag,
+                        "read scan count");
+    uint16_t record_count = static_cast<uint16_t>(std::min<size_t>(
+        available, kWifiScanMaximumNetworks));
+    wifi_ap_record_t records[kWifiScanMaximumNetworks] = {};
+    ESP_RETURN_ON_ERROR(esp_wifi_scan_get_ap_records(&record_count, records),
+                        kTag,
+                        "read scan results");
+    for (uint16_t index = 0U; index < record_count; ++index) {
+        const wifi_ap_record_t &record = records[index];
+        wifi_scan_list_add(
+            list,
+            reinterpret_cast<const char *>(record.ssid),
+            record.rssi,
+            record.authmode != WIFI_AUTH_OPEN);
+    }
+    wifi_scan_list_sort(list);
+    STICKY_LOGI(kTag,
+                "wifi=scan visible=%u returned=%u result=ok",
+                static_cast<unsigned>(available),
+                static_cast<unsigned>(list.count));
+    return ESP_OK;
+}
+
+esp_err_t wifi_service_validate_setup_connection(
+    const SalahSettings &settings,
+    uint32_t timeout_ms)
+{
+    if (!s_initialized || !settings_store_valid(settings)) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    wifi_config_t config = {};
+    std::strncpy(reinterpret_cast<char *>(config.sta.ssid),
+                 settings.wifi_ssid,
+                 sizeof(config.sta.ssid) - 1U);
+    std::strncpy(reinterpret_cast<char *>(config.sta.password),
+                 settings.wifi_password,
+                 sizeof(config.sta.password) - 1U);
+    config.sta.threshold.authmode = settings.wifi_password[0] == '\0'
+                                        ? WIFI_AUTH_OPEN
+                                        : WIFI_AUTH_WPA2_PSK;
+    config.sta.pmf_cfg.capable = true;
+    config.sta.pmf_cfg.required = false;
+
+    s_connect_enabled.store(false, std::memory_order_release);
+    esp_wifi_disconnect();
+    xEventGroupClearBits(s_events, kConnectedBit | kFailedBit);
+    s_connect_attempts.store(1U, std::memory_order_release);
+    s_connected.store(false, std::memory_order_release);
+    ESP_RETURN_ON_ERROR(esp_wifi_set_config(WIFI_IF_STA, &config),
+                        kTag,
+                        "set candidate network");
+    s_connect_enabled.store(true, std::memory_order_release);
+    ESP_RETURN_ON_ERROR(esp_wifi_connect(), kTag, "connect candidate network");
+
+    const EventBits_t bits = xEventGroupWaitBits(
+        s_events,
+        kConnectedBit | kFailedBit,
+        pdTRUE,
+        pdFALSE,
+        pdMS_TO_TICKS(timeout_ms));
+    if ((bits & kConnectedBit) != 0U) {
+        STICKY_LOGI(kTag, "wifi=setup_validation stage=connect result=ok");
+        return ESP_OK;
+    }
+    s_connect_enabled.store(false, std::memory_order_release);
+    esp_wifi_disconnect();
+    STICKY_LOGW(kTag,
+                "wifi=setup_validation stage=connect attempts=%u result=failed",
+                static_cast<unsigned>(s_connect_attempts.load()));
+    return ESP_ERR_TIMEOUT;
 }
 
 esp_err_t wifi_service_stop()
@@ -313,6 +449,7 @@ esp_err_t wifi_service_stop()
     if (!s_initialized) {
         return ESP_OK;
     }
+    s_connect_enabled.store(false, std::memory_order_release);
     s_connected.store(false, std::memory_order_release);
     return stop_wifi_if_running();
 }

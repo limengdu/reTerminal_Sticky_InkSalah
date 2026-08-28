@@ -7,7 +7,10 @@ Sticky Salah 是面向 Seeed Studio reTerminal Sticky 的原生穆斯林礼拜�
 - 默认竖屏大字号日程，横向摆放时切换为五卡片日程。
 - 英文礼拜名称与预先生成的阿拉伯文字形。
 - 公历、伊斯兰历、当前城市、同步状态与电池电量。
-- 首次开机本地 Wi-Fi 配网页面，手机会自动填写当前 UTC 偏移。
+- 首次开机使用标准 Captive Portal，手机连接热点后可自动打开配网页。
+- 自动扫描附近 Wi-Fi，按信号强度展示，并保留隐藏网络入口。
+- 249 个 ISO 国家选项、常用城市建议和保存前地点验证。
+- 手机自动填写当前 UTC 偏移，并允许从下拉框调整。
 - 23 个 AlAdhan 官方计算机构/地区选项，以及 Standard / Hanafi 两种 Asr 学派选项。
 - 通过 HTTPS 获取本月和下月礼拜时间，并把日程与设置保存在设备本地。
 - 断网时继续使用本地缓存；联网后校准系统时间和板载 RTC。
@@ -24,7 +27,7 @@ Sticky Salah 是面向 Seeed Studio reTerminal Sticky 的原生穆斯林礼拜�
 - [Visual Studio Code](https://code.visualstudio.com/) 与 [PlatformIO](https://platformio.org/)，或可直接使用 PlatformIO Core。
 - PlatformIO 平台固定为 `espressif32@6.11.0`，对应 ESP-IDF 5.4.1。
 
-第三方依赖只有 Espressif Button 组件 `4.1.6`。PlatformIO 第一次构建时会自动下载平台、ESP-IDF 与组件。
+第三方依赖只有 Espressif Button 组件 `4.1.6`。DNS 重定向使用项目内实现的 ESP-IDF/LwIP 网络能力，不增加运行依赖。PlatformIO 第一次构建时会自动下载平台、ESP-IDF 与组件。
 
 一句话总结：准备 Sticky、USB 数据线和 PlatformIO 就可以构建与烧录。
 
@@ -78,13 +81,14 @@ pio device monitor --port /dev/cu.usbmodemXXXX --baud 115200
 
 1. 首次启动时，竖屏会显示一个形如 `Sticky-Salah-A1B2` 的 Wi-Fi 名称。
 2. 手机连接这个 Wi-Fi，密码是 `sticky-salah`。
-3. 手机浏览器打开 `http://192.168.4.1`。
-4. 填写家庭 Wi-Fi、城市和国家。
-5. 确认页面自动检测到的 UTC 偏移。
-6. 选择本地清真寺使用的计算机构和 Asr 学派。
-7. 按 `Save and start`，设备会重启并下载礼拜日程。
+3. 手机通常会自动打开配网页；也可以在浏览器访问 `http://192.168.4.1`。
+4. 从扫描结果中选择家庭 Wi-Fi，隐藏网络可以使用手动入口。
+5. 从下拉框选择国家和城市；目录外城市使用 `Other city` 输入。
+6. 确认手机自动选择的 UTC 偏移。
+7. 检查页面推荐的计算机构，并选择本地清真寺使用的 Asr 学派。
+8. 按 `Check and save`。设备会先验证 Wi-Fi、互联网时间和 AlAdhan 礼拜数据，全部成功后才保存并重启。
 
-计算机构的编号与名称来自 [AlAdhan 官方方法接口](https://api.aladhan.com/v1/methods)。礼拜时间应与当地清真寺公布的时刻表核对；当地清真寺的做法是最终依据。
+计算机构的编号与名称来自 [AlAdhan 官方方法接口](https://api.aladhan.com/v1/methods)。国家名称来自 ISO 3166，常用城市建议来自 AlAdhan 公开城市目录。目录外城市会调用 AlAdhan `timingsByCity` 接口验证，验证通过后才会保存。礼拜时间应与当地清真寺公布的时刻表核对；当地清真寺的做法是最终依据。
 
 进入夏令时或冬令时后，再次打开设置页即可让手机写入新的 UTC 偏移。正常页面刷新后双击 AI 按键，可以重新进入设置。
 
@@ -97,6 +101,7 @@ pio device monitor --port /dev/cu.usbmodemXXXX --baud 115200
 ```text
 wifi=setup_ap state=started result=ok
 wifi=setup_ap ... address=192.168.4.1 dhcp=started ... result=ok
+dns=redirect address=192.168.4.1 port=53 result=ok
 portal=self_test address=http://192.168.4.1/health result=ok
 portal=ready address=http://192.168.4.1/ result=ok
 ```
@@ -107,9 +112,11 @@ portal=ready address=http://192.168.4.1/ result=ok
 wifi=setup_client state=connected ...
 wifi=setup_client state=address_assigned ip=192.168.4.x ...
 portal=request method=GET path=/
+portal=request method=GET path=/api/wifi/scan
+wifi=scan visible=... returned=... result=ok
 ```
 
-前四行证明设备内部的 AP、DHCP 和 HTTP 已经就绪；客户端三行则证明手机连接、获得地址并把请求送到了 Sticky。
+启动日志证明设备内部的 AP、DHCP、DNS 和 HTTP 已经就绪；客户端日志证明手机连接、获得地址并把请求送到了 Sticky。保存时还会依次记录 Wi-Fi 连接、网络时间和地点数据验证结果。
 
 一句话总结：串口会直接告诉你配网进行到了哪一层。
 
@@ -139,6 +146,7 @@ src/board/              供电、引脚、I2C 与共享 SPI
 src/devices/            RTC、电池与蜂鸣器
 src/display/            SSD1677 显示驱动封装
 src/input/              按键与触摸驱动
+src/location/           ISO 国家、常用城市和推荐计算方法
 src/network/            Wi-Fi、SNTP 与首次设置网页
 src/prayer/             日期、礼拜时间与下一场计算
 src/services/           AlAdhan HTTPS 客户端
@@ -161,17 +169,21 @@ bash tools/run_host_tests.sh
 成功时会看到：
 
 ```text
-[host-test] PASS 6/6
+[host-test] PASS 10/10
 ```
 
-六组测试分别覆盖：
+十项检查分别覆盖：
 
+- Debug、Release 和默认配置的 HTTP 请求头容量至少为 4096 字节。
 - 时间解析、跨天寻找下一场礼拜、闰年和动态刷新间隔。
 - 日程添加、排序、重复日期与容量边界。
 - 首次设置表单、URL 解码、UTC 范围、必填项和超长输入。
 - 横屏、竖屏、设置页、错误页与空数据保护。
 - 冷启动默认竖屏、实体横放切换和未知方向回退。
 - AP 启动、DHCP 运行与 `192.168.4.1` 地址三层就绪条件。
+- DNS 请求解析及 `192.168.4.1` A 记录响应。
+- Wi-Fi 扫描结果去重、信号排序和隐藏 SSID 过滤。
+- 249 个国家、常用城市及地区计算方法推荐。
 
 一句话总结：这些测试先把不依赖硬件的核心规则在电脑上验证清楚。
 
@@ -200,6 +212,7 @@ g++ -std=c++17 -Isrc/prayer -Isrc/storage -Isrc/ui tools/render_ui_preview.cpp s
 
 - Wi-Fi 凭据、城市、国家和选择项保存在 ESP32 的 NVS 中。
 - HTTPS 请求只向 `api.aladhan.com` 发送城市、国家、计算机构和 Asr 学派。
+- 配网提交后先连接用户选择的 Wi-Fi，并调用 AlAdhan 验证五次礼拜时间；验证失败时保留配网页和原有设置。
 - 固件缓存当前月与下一个月，最多保存 64 天。
 - 时区采用设置页保存的固定 UTC 偏移；季节性时钟变化通过再次设置完成更新。
 - 当前版本以 AlAdhan 返回的当日有序时间为准，适合每天五场时间都落在本地同一自然日内的地区。
