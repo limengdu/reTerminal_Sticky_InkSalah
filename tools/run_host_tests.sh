@@ -54,6 +54,10 @@ compile_and_run() {
 
 check_http_header_capacity
 
+echo "[host-test] setup_portal_page_test"
+python3 test/setup_portal_page_test.py
+passed_count=$((passed_count + 1))
+
 compile_and_run prayer_time_test \
     -Isrc/prayer \
     test/prayer_time_test.cpp \
@@ -104,4 +108,4 @@ compile_and_run location_catalog_test \
     test/location_catalog_test.cpp \
     src/location/location_catalog.cpp
 
-echo "[host-test] PASS ${passed_count}/10"
+echo "[host-test] PASS ${passed_count}/11"
