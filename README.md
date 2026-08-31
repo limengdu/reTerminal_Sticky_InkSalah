@@ -16,13 +16,13 @@ Sticky Salah 是面向 Seeed Studio reTerminal Sticky 的原生穆斯林礼拜�
 - 断网时继续使用本地缓存；联网后校准系统时间和板载 RTC。
 - 距离下一场礼拜较远时每 10 分钟刷新，进入一小时后每 5 分钟刷新，最后 10 分钟每分钟刷新。
 - 可选三音礼拜提醒，并在刷新完成后通过 AI 按键双击重新进入设置。
-- 每次刷新结束后进入深度睡眠，墨水屏在断电后继续保留画面。
+- 每次刷新结束后进入深度睡眠，由礼拜定时器、顶部按键或 IMU 横竖姿态变化唤醒，墨水屏在断电后继续保留画面。
 
 一句话总结：它把 Sticky 变成一台低功耗、无需常亮网络连接的礼拜时间牌。
 
 ## 硬件与软件
 
-- Seeed Studio reTerminal Sticky，ESP32-S3R8，32 MB Flash。
+- [Seeed Studio reTerminal Sticky](https://www.seeedstudio.com/sticky/docs/en/device-guide/hardware-overview/)，ESP32-S3R8，32 MB Flash；LSM6DS3TR-C 的中断信号连接到 GPIO7。
 - USB-C 数据线。
 - [Visual Studio Code](https://code.visualstudio.com/) 与 [PlatformIO](https://platformio.org/)，或可直接使用 PlatformIO Core。
 - PlatformIO 平台固定为 `espressif32@6.11.0`，对应 ESP-IDF 5.4.1。
@@ -132,9 +132,23 @@ wifi=scan visible=... returned=... result=ok
 6. 用当前时间计算下一场礼拜和倒计时。
 7. 以竖屏为默认方向，读取 IMU 后在真实横放时绘制横屏页面。
 8. 在礼拜时刻播放可选提示音。
-9. 计算下一次唤醒时间，关闭外设并进入深度睡眠。
+9. 把 IMU 切换为 12.5 Hz 低功耗姿态检测，计算下一次定时唤醒时间，关闭外设并进入深度睡眠。
+10. 定时器到期、顶部按键按下或横竖姿态变化时重新从第 1 步启动；GPIO7 的 IMU 中断与 GPIO4 的顶部按键统一使用低电平唤醒。
 
-一句话总结：每次醒来只完成“读时间、算下一场、画一屏”，然后马上继续省电。
+一句话总结：平时由低功耗 IMU 和定时器站岗，只有时间到、按键按下或设备转动时才叫醒主控刷新画面。
+
+### 三种深睡唤醒验收
+
+调试版在进入深度睡眠前会显示：
+
+```text
+imu=wakeup state=armed mode=4d ... interrupt_pin=7 active_level=low result=ok
+power=deep_sleep wake_button=4 wake_orientation=7 orientation_enabled=1 timer_us=... result=entering
+```
+
+重新启动时，日志中的 `wake_source` 会分别显示 `timer`、`button` 或 `orientation`。设备横竖摆放变化后，IMU 先唤醒 ESP32，固件确认稳定方向并刷新对应页面，然后再次进入深度睡眠。
+
+一句话总结：串口中的唤醒原因可以直接证明定时器、按键和 IMU 三条链路分别生效。
 
 ## 代码结构
 

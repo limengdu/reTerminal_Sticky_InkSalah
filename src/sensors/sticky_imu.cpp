@@ -6,6 +6,7 @@
 #include <cstdint>
 
 #include "app_log.h"
+#include "driver/gpio.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "pin_config.h"
@@ -19,10 +20,23 @@ constexpr int kI2cTimeoutMs = 100;
 constexpr uint8_t kWhoAmIRegister = 0x0F;
 constexpr uint8_t kExpectedWhoAmI = 0x6A;
 constexpr uint8_t kAccelerometerControlRegister = 0x10;
+constexpr uint8_t kGyroscopeControlRegister = 0x11;
 constexpr uint8_t kControlRegister3 = 0x12;
+constexpr uint8_t kControlRegister6 = 0x15;
+constexpr uint8_t kD6dSourceRegister = 0x1D;
 constexpr uint8_t kAccelerometerOutputRegister = 0x28;
+constexpr uint8_t kTapConfigRegister = 0x58;
+constexpr uint8_t kTapThreshold6dRegister = 0x59;
+constexpr uint8_t kInterrupt1RouteRegister = 0x5E;
 constexpr uint8_t kAccelerometer104Hz2g = 0x40;
 constexpr uint8_t kRegisterAutoIncrement = 0x04;
+constexpr uint8_t kAccelerometer12Hz2g = 0x10;
+constexpr uint8_t kAccelerometerLowPowerMode = 0x10;
+constexpr uint8_t kActiveLowAutoIncrement = 0x24;
+constexpr uint8_t kBasicInterruptsLatched = 0x81;
+constexpr uint8_t kFourDimension60DegreeThreshold = 0xC0;
+constexpr uint8_t kRouteOrientationToInterrupt1 = 0x04;
+constexpr uint8_t kOrientationInterruptDetected = 0x40;
 constexpr float kAccelerationScaleG = 0.000061F;
 constexpr float kOrientationThresholdG = 0.70F;
 
@@ -78,6 +92,31 @@ esp_err_t read_registers(uint8_t reg, uint8_t *data, size_t length)
 {
     return i2c_master_transmit_receive(
         s_device, &reg, 1, data, length, kI2cTimeoutMs);
+}
+
+esp_err_t configure_normal_sampling()
+{
+    // Restores the active 104 Hz sampling profile used by the monitor task.
+    // 恢复监测任务使用的104Hz主动采样配置。
+    esp_err_t result = write_register(kInterrupt1RouteRegister, 0x00);
+    if (result == ESP_OK) {
+        result = write_register(kTapConfigRegister, 0x00);
+    }
+    if (result == ESP_OK) {
+        result = write_register(kControlRegister6, 0x00);
+    }
+    if (result == ESP_OK) {
+        result = write_register(kGyroscopeControlRegister, 0x00);
+    }
+    if (result == ESP_OK) {
+        result = write_register(kAccelerometerControlRegister,
+                                kAccelerometer104Hz2g);
+    }
+    if (result == ESP_OK) {
+        result = write_register(kControlRegister3,
+                                kRegisterAutoIncrement);
+    }
+    return result;
 }
 
 int16_t read_int16_le(const uint8_t *data)
@@ -428,12 +467,27 @@ esp_err_t sticky_imu_init(i2c_master_bus_handle_t bus)
         return result != ESP_OK ? result : ESP_ERR_NOT_FOUND;
     }
 
-    // Configures 104 Hz, +/-2 g sampling and sequential register reads.
-    // 配置104Hz、正负2g采样，并启用连续寄存器读取。
-    result = write_register(
-        kAccelerometerControlRegister, kAccelerometer104Hz2g);
+    gpio_config_t interrupt_config = {};
+    interrupt_config.pin_bit_mask = 1ULL << PIN_IMU_INT;
+    interrupt_config.mode = GPIO_MODE_INPUT;
+    interrupt_config.pull_up_en = GPIO_PULLUP_ENABLE;
+    interrupt_config.pull_down_en = GPIO_PULLDOWN_DISABLE;
+    interrupt_config.intr_type = GPIO_INTR_DISABLE;
+    result = gpio_config(&interrupt_config);
     if (result == ESP_OK) {
-        result = write_register(kControlRegister3, kRegisterAutoIncrement);
+        uint8_t interrupt_source = 0U;
+        result = read_registers(kD6dSourceRegister,
+                                &interrupt_source,
+                                1U);
+        if (result == ESP_OK &&
+            (interrupt_source & kOrientationInterruptDetected) != 0U) {
+            STICKY_LOGI(kTag,
+                        "imu=wakeup source=orientation raw=0x%02X result=ok",
+                        interrupt_source);
+        }
+    }
+    if (result == ESP_OK) {
+        result = configure_normal_sampling();
     }
     if (result != ESP_OK) {
         i2c_master_bus_rm_device(s_device);
@@ -443,8 +497,9 @@ esp_err_t sticky_imu_init(i2c_master_bus_handle_t bus)
 
     vTaskDelay(pdMS_TO_TICKS(100));
     STICKY_LOGI(kTag,
-                "imu=ready address=0x%02X who_am_i=0x%02X accelerometer_hz=104 range_g=2 result=ok",
+                "imu=ready address=0x%02X interrupt_pin=%d who_am_i=0x%02X accelerometer_hz=104 range_g=2 result=ok",
                 LSM6DS3_I2C_ADDR,
+                PIN_IMU_INT,
                 who_am_i);
     return ESP_OK;
 }
@@ -510,6 +565,84 @@ esp_err_t sticky_imu_get_state(StickyImuState &state)
     state = s_latest_state;
     taskEXIT_CRITICAL(&s_state_lock);
     return state.valid ? ESP_OK : ESP_ERR_INVALID_STATE;
+}
+
+esp_err_t sticky_imu_prepare_orientation_wakeup()
+{
+    if (s_device == nullptr) {
+        return ESP_ERR_INVALID_STATE;
+    }
+
+    esp_err_t result = sticky_imu_stop_monitoring();
+    if (result != ESP_OK) {
+        return result;
+    }
+
+    // Uses a latched, active-low 4D event so GPIO7 and the active-low top
+    // button can share the ESP32-S3 EXT1 ANY_LOW wakeup source.
+    // 使用锁存的低电平4D事件，使GPIO7可与低电平顶部按键共享EXT1 ANY_LOW唤醒。
+    result = write_register(kInterrupt1RouteRegister, 0x00);
+    if (result == ESP_OK) {
+        result = write_register(kGyroscopeControlRegister, 0x00);
+    }
+    if (result == ESP_OK) {
+        result = write_register(kControlRegister6,
+                                kAccelerometerLowPowerMode);
+    }
+    if (result == ESP_OK) {
+        result = write_register(kAccelerometerControlRegister,
+                                kAccelerometer12Hz2g);
+    }
+    if (result == ESP_OK) {
+        result = write_register(kControlRegister3,
+                                kActiveLowAutoIncrement);
+    }
+    if (result == ESP_OK) {
+        result = write_register(kTapThreshold6dRegister,
+                                kFourDimension60DegreeThreshold);
+    }
+    if (result == ESP_OK) {
+        result = write_register(kTapConfigRegister,
+                                kBasicInterruptsLatched);
+    }
+    if (result != ESP_OK) {
+        configure_normal_sampling();
+        return result;
+    }
+
+    uint8_t interrupt_source = 0U;
+    result = read_registers(kD6dSourceRegister, &interrupt_source, 1U);
+    if (result == ESP_OK) {
+        result = write_register(kInterrupt1RouteRegister,
+                                kRouteOrientationToInterrupt1);
+    }
+    if (result != ESP_OK) {
+        configure_normal_sampling();
+        return result;
+    }
+
+    vTaskDelay(pdMS_TO_TICKS(100));
+    result = read_registers(kD6dSourceRegister, &interrupt_source, 1U);
+    if (result == ESP_OK) {
+        vTaskDelay(pdMS_TO_TICKS(5));
+        if (gpio_get_level(static_cast<gpio_num_t>(PIN_IMU_INT)) == 0) {
+            result = ESP_ERR_INVALID_STATE;
+        }
+    }
+    if (result != ESP_OK) {
+        configure_normal_sampling();
+        STICKY_LOGE(kTag,
+                    "imu=wakeup state=arm_failed pin=%d level=%d result=%s",
+                    PIN_IMU_INT,
+                    gpio_get_level(static_cast<gpio_num_t>(PIN_IMU_INT)),
+                    esp_err_to_name(result));
+        return result;
+    }
+
+    STICKY_LOGI(kTag,
+                "imu=wakeup state=armed mode=4d threshold_degrees=60 accelerometer_hz=12.5 interrupt_pin=%d active_level=low result=ok",
+                PIN_IMU_INT);
+    return ESP_OK;
 }
 
 bool sticky_imu_take_shake_started_event()

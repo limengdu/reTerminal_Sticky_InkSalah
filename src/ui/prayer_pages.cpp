@@ -365,47 +365,47 @@ void prayer_page_render_setup(Canvas &canvas,
 
         draw_centered(canvas,
                       static_cast<int>(canvas.width()) / 2,
-                      270,
+                      352,
                       "1  CONNECT YOUR PHONE TO",
                       2,
                       GrayLevel::Black);
         draw_centered(canvas,
                       static_cast<int>(canvas.width()) / 2,
-                      310,
+                      386,
                       ap_ssid,
                       std::strlen(ap_ssid) <= 31U ? 2U : 1U,
                       GrayLevel::Black);
-        canvas.draw_line(100, 350, 380, 350, GrayLevel::Black);
+        canvas.draw_line(100, 426, 380, 426, GrayLevel::Black);
 
         draw_centered(canvas,
                       static_cast<int>(canvas.width()) / 2,
-                      370,
+                      446,
                       "2  ENTER THE PASSWORD",
                       2,
                       GrayLevel::Black);
         draw_centered(canvas,
                       static_cast<int>(canvas.width()) / 2,
-                      410,
+                      480,
                       ap_password,
                       3,
                       GrayLevel::Black);
-        canvas.draw_line(100, 454, 380, 454, GrayLevel::Black);
+        canvas.draw_line(100, 520, 380, 520, GrayLevel::Black);
 
         draw_centered(canvas,
                       static_cast<int>(canvas.width()) / 2,
-                      476,
+                      540,
                       "3  OPEN THE SETUP PAGE",
                       2,
                       GrayLevel::Black);
         draw_centered(canvas,
                       static_cast<int>(canvas.width()) / 2,
-                      520,
+                      580,
                       "192.168.4.1",
                       3,
                       GrayLevel::Black);
         draw_centered(canvas,
                       static_cast<int>(canvas.width()) / 2,
-                      582,
+                      628,
                       "THE PAGE SHOULD OPEN AUTOMATICALLY",
                       1,
                       GrayLevel::Black);

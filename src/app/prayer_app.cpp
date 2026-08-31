@@ -75,6 +75,27 @@ CanvasRotation detect_rotation()
     return rotation;
 }
 
+[[noreturn]] void enter_deep_sleep(uint64_t timer_wakeup_us)
+{
+    const esp_err_t imu_result =
+        sticky_imu_prepare_orientation_wakeup();
+    const bool orientation_wakeup_ready = imu_result == ESP_OK;
+    if (!orientation_wakeup_ready) {
+        STICKY_LOGW(kTag,
+                    "sleep=orientation_wakeup state=disabled result=%s",
+                    esp_err_to_name(imu_result));
+    }
+
+    const esp_err_t display_result = sticky_display_sleep();
+    if (display_result != ESP_OK) {
+        STICKY_LOGW(kTag,
+                    "sleep=display state=power_down_failed result=%s",
+                    esp_err_to_name(display_result));
+    }
+    board_power_enter_deep_sleep(timer_wakeup_us,
+                                 orientation_wakeup_ready);
+}
+
 void show_setup(Canvas &canvas)
 {
     char ap_ssid[32] = {};
@@ -85,7 +106,7 @@ void show_setup(Canvas &canvas)
                                  "SETUP UNAVAILABLE",
                                  "RESTART THE DEVICE");
         sticky_display_refresh_monochrome();
-        board_power_enter_deep_sleep(kErrorRetryUs);
+        enter_deep_sleep(kErrorRetryUs);
     }
 
     canvas.set_rotation(salah_default_rotation());
@@ -102,7 +123,7 @@ void show_setup(Canvas &canvas)
                                  "SETUP UNAVAILABLE",
                                  "RESTART THE DEVICE");
         sticky_display_refresh_monochrome();
-        board_power_enter_deep_sleep(kErrorRetryUs);
+        enter_deep_sleep(kErrorRetryUs);
     }
     wifi_service_stop();
     vTaskDelay(pdMS_TO_TICKS(250));
@@ -225,8 +246,7 @@ uint64_t sleep_interval_us(const PrayerNext &next,
         if (setup_requested()) {
             show_setup(canvas);
         }
-        sticky_display_sleep();
-        board_power_enter_deep_sleep(kErrorRetryUs);
+        enter_deep_sleep(kErrorRetryUs);
     }
 
     canvas.set_rotation(detect_rotation());
@@ -255,6 +275,5 @@ uint64_t sleep_interval_us(const PrayerNext &next,
                 static_cast<unsigned>(next.minutes_until),
                 online,
                 static_cast<unsigned long long>(sleep_us / 1000000ULL));
-    sticky_display_sleep();
-    board_power_enter_deep_sleep(sleep_us);
+    enter_deep_sleep(sleep_us);
 }

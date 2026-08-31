@@ -9,6 +9,8 @@
 esp_err_t board_power_init();
 
 // Holds the board rails, powers down peripherals, and enters deep sleep.
-// 保持板级电源锁存、关闭外设，并进入深度睡眠；该函数不会返回。
+// A zero timer disables timed wakeup; the second parameter adds GPIO7.
+// 保持板级电源锁存、关闭外设并进入深睡；定时器为0时关闭定时唤醒，第二个参数用于加入GPIO7。
 [[noreturn]] void board_power_enter_deep_sleep(
-    uint64_t timer_wakeup_us = 0U);
+    uint64_t timer_wakeup_us,
+    bool orientation_wakeup_enabled);

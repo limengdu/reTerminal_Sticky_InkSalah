@@ -57,17 +57,60 @@ void wait_for_sleep_chord_release()
     vTaskDelay(kReleaseDebounceTime);
 }
 
+esp_err_t configure_active_low_wakeup_input(gpio_num_t pin)
+{
+    gpio_hold_dis(pin);
+    esp_err_t result = gpio_set_direction(pin, GPIO_MODE_INPUT);
+    if (result == ESP_OK) {
+        result = gpio_pullup_en(pin);
+    }
+    if (result == ESP_OK) {
+        result = gpio_pulldown_dis(pin);
+    }
+    if (result == ESP_OK) {
+        result = gpio_hold_en(pin);
+    }
+    return result;
+}
+
+const char *wakeup_source_name(esp_sleep_wakeup_cause_t cause,
+                               uint64_t external_status)
+{
+    if (cause == ESP_SLEEP_WAKEUP_TIMER) {
+        return "timer";
+    }
+    if (cause == ESP_SLEEP_WAKEUP_EXT1) {
+        if ((external_status & (1ULL << PIN_IMU_INT)) != 0U) {
+            return "orientation";
+        }
+        if ((external_status & (1ULL << PIN_TOP_BUTTON)) != 0U) {
+            return "button";
+        }
+        return "external";
+    }
+    return cause == ESP_SLEEP_WAKEUP_UNDEFINED ? "cold_boot" : "other";
+}
+
 }  // namespace
 
 esp_err_t board_power_init()
 {
     app_log_register_tag(kTag);
 
+    const esp_sleep_wakeup_cause_t wake_cause =
+        esp_sleep_get_wakeup_cause();
     const bool woke_from_sleep =
-        esp_sleep_get_wakeup_cause() != ESP_SLEEP_WAKEUP_UNDEFINED;
+        wake_cause != ESP_SLEEP_WAKEUP_UNDEFINED;
+    const uint64_t external_wakeup_status =
+        wake_cause == ESP_SLEEP_WAKEUP_EXT1
+            ? esp_sleep_get_ext1_wakeup_status()
+            : 0U;
     STICKY_LOGI(kTag,
-                "step=begin wake_from_sleep=%s hold_pin=%d lock_pin=%d",
+                "step=begin wake_from_sleep=%s wake_source=%s wake_cause=%d wake_mask=0x%llX hold_pin=%d lock_pin=%d",
                 woke_from_sleep ? "true" : "false",
+                wakeup_source_name(wake_cause, external_wakeup_status),
+                static_cast<int>(wake_cause),
+                static_cast<unsigned long long>(external_wakeup_status),
                 PIN_POWER_HOLD,
                 PIN_POWER_LOCK);
 
@@ -92,6 +135,7 @@ esp_err_t board_power_init()
         PIN_TOUCH_RST,
         PIN_SD_EN,
         PIN_BUZZER,
+        PIN_IMU_INT,
     };
     for (int held_pin : kHeldPins) {
         gpio_hold_dis(static_cast<gpio_num_t>(held_pin));
@@ -129,10 +173,14 @@ esp_err_t board_power_init()
 }
 
 
-[[noreturn]] void board_power_enter_deep_sleep(uint64_t timer_wakeup_us)
+[[noreturn]] void board_power_enter_deep_sleep(
+    uint64_t timer_wakeup_us,
+    bool orientation_wakeup_enabled)
 {
-    const gpio_num_t wake_pin =
+    const gpio_num_t button_wake_pin =
         static_cast<gpio_num_t>(PIN_TOP_BUTTON);
+    const gpio_num_t orientation_wake_pin =
+        static_cast<gpio_num_t>(PIN_IMU_INT);
     wait_for_sleep_chord_release();
 
     // This sequence mirrors the hardware demo: the board latch stays high,
@@ -153,21 +201,25 @@ esp_err_t board_power_init()
     ESP_ERROR_CHECK(hold_output(
         static_cast<gpio_num_t>(PIN_BUZZER), 0));
 
-    gpio_hold_dis(wake_pin);
-    ESP_ERROR_CHECK(gpio_set_direction(wake_pin, GPIO_MODE_INPUT));
-    ESP_ERROR_CHECK(gpio_pullup_en(wake_pin));
-    ESP_ERROR_CHECK(gpio_pulldown_dis(wake_pin));
-    ESP_ERROR_CHECK(gpio_hold_en(wake_pin));
+    ESP_ERROR_CHECK(configure_active_low_wakeup_input(button_wake_pin));
+    uint64_t external_wakeup_mask = 1ULL << PIN_TOP_BUTTON;
+    if (orientation_wakeup_enabled) {
+        ESP_ERROR_CHECK(
+            configure_active_low_wakeup_input(orientation_wake_pin));
+        external_wakeup_mask |= 1ULL << PIN_IMU_INT;
+    }
     ESP_ERROR_CHECK(esp_sleep_enable_ext1_wakeup_io(
-        1ULL << PIN_TOP_BUTTON, ESP_EXT1_WAKEUP_ANY_LOW));
+        external_wakeup_mask, ESP_EXT1_WAKEUP_ANY_LOW));
     if (timer_wakeup_us > 0U) {
         ESP_ERROR_CHECK(esp_sleep_enable_timer_wakeup(timer_wakeup_us));
     }
     gpio_deep_sleep_hold_en();
 
     STICKY_LOGI(kTag,
-                "power=deep_sleep wake_button=%d timer_us=%llu result=entering",
+                "power=deep_sleep wake_button=%d wake_orientation=%d orientation_enabled=%d timer_us=%llu result=entering",
                 PIN_TOP_BUTTON,
+                PIN_IMU_INT,
+                orientation_wakeup_enabled,
                 static_cast<unsigned long long>(timer_wakeup_us));
     std::fflush(stdout);
     vTaskDelay(pdMS_TO_TICKS(50));

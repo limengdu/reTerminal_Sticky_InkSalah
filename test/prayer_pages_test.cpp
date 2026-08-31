@@ -51,6 +51,23 @@ size_t dark_pixels_below(const Canvas &canvas, int start_y)
     return count;
 }
 
+size_t dark_pixels_in_rect(const Canvas &canvas,
+                           int left,
+                           int top,
+                           int right,
+                           int bottom)
+{
+    size_t count = 0U;
+    for (int y = top; y < bottom; ++y) {
+        for (int x = left; x < right; ++x) {
+            if (canvas.pixel_at(x, y) <= GrayLevel::DarkGray) {
+                ++count;
+            }
+        }
+    }
+    return count;
+}
+
 int main()
 {
     std::vector<uint8_t> buffer(800U * 480U / 4U, 0xFFU);
@@ -96,6 +113,8 @@ int main()
     assert(setup_dark_pixels < 65000U);
     assert(canvas.pixel_at(12, 12) == GrayLevel::Black);
     assert(canvas.pixel_at(240, 250) == GrayLevel::White);
+    assert(dark_pixels_in_rect(canvas, 100, 250, 380, 330) == 0U);
+    assert(dark_pixels_in_rect(canvas, 90, 340, 390, 650) > 2500U);
     assert(dark_pixels_below(canvas, 620) > 5000U);
 
     for (PrayerId prayer : {PrayerId::Fajr,

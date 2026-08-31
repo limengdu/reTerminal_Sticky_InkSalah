@@ -36,6 +36,10 @@ esp_err_t sticky_imu_stop_monitoring();
 // 复制加速度、快速稳定计数、移动标记和最终放稳姿态。
 esp_err_t sticky_imu_get_state(StickyImuState &state);
 
+// Arms the low-power 4D orientation interrupt before ESP32 deep sleep.
+// 在ESP32进入深睡前，启用低功耗4D姿态中断。
+esp_err_t sticky_imu_prepare_orientation_wakeup();
+
 // Returns and clears one pending shake-session start event.
 // 读取并清除一次待处理的摇晃会话开始事件。
 bool sticky_imu_take_shake_started_event();

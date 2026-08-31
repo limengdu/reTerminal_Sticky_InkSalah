@@ -21,6 +21,8 @@
 #define BQ27220_I2C_ADDR 0x55
 #define PCF8563_I2C_ADDR 0x51
 #define LSM6DS3_I2C_ADDR 0x6A
+// LSM6DS3TR-C active-low orientation wake interrupt / IMU低电平姿态唤醒中断
+#define PIN_IMU_INT 7
 
 // SSD1677 e-paper panel on SPI2 / SPI2总线上的SSD1677电子纸屏幕
 #define PIN_EPD_MOSI 14
