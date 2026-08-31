@@ -10,10 +10,14 @@
 #include "esp_crt_bundle.h"
 #include "esp_heap_caps.h"
 #include "esp_http_client.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "http_retry_policy.h"
 
 namespace {
 
 constexpr char kTag[] = "aladhan_client";
+constexpr char kUserAgent[] = "Sticky-Salah/0.1.0";
 constexpr size_t kResponseCapacity = 128U * 1024U;
 constexpr size_t kValidationResponseCapacity = 16U * 1024U;
 
@@ -40,6 +44,80 @@ esp_err_t http_event_handler(esp_http_client_event_t *event)
     buffer->length += incoming;
     buffer->data[buffer->length] = '\0';
     return ESP_OK;
+}
+
+HttpRequestOutcome classify_http_result(esp_err_t result, int status)
+{
+    if (result == ESP_OK) {
+        return status == 429 || status >= 500
+                   ? HttpRequestOutcome::TransientFailure
+                   : HttpRequestOutcome::Success;
+    }
+    switch (result) {
+        case ESP_ERR_HTTP_CONNECT:
+        case ESP_ERR_HTTP_WRITE_DATA:
+        case ESP_ERR_HTTP_FETCH_HEADER:
+        case ESP_ERR_HTTP_EAGAIN:
+        case ESP_ERR_HTTP_CONNECTION_CLOSED:
+        case ESP_ERR_TIMEOUT:
+        case ESP_FAIL:
+            return HttpRequestOutcome::TransientFailure;
+        default:
+            return HttpRequestOutcome::PermanentFailure;
+    }
+}
+
+esp_err_t perform_https_get(const char *url,
+                            ResponseBuffer &response,
+                            int timeout_ms,
+                            int &status)
+{
+    if (url == nullptr || response.data == nullptr ||
+        response.capacity == 0U || timeout_ms <= 0) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    status = 0;
+    esp_err_t result = ESP_FAIL;
+    for (uint8_t attempt = 1U;
+         attempt <= kHttpRequestAttemptLimit;
+         ++attempt) {
+        response.length = 0U;
+        response.overflow = false;
+        response.data[0] = '\0';
+
+        esp_http_client_config_t config = {};
+        config.url = url;
+        config.user_agent = kUserAgent;
+        config.event_handler = http_event_handler;
+        config.user_data = &response;
+        config.crt_bundle_attach = esp_crt_bundle_attach;
+        config.timeout_ms = timeout_ms;
+        config.max_redirection_count = 3;
+        config.buffer_size = 2048;
+        config.buffer_size_tx = 1024;
+        esp_http_client_handle_t client = esp_http_client_init(&config);
+        if (client == nullptr) {
+            return ESP_ERR_NO_MEM;
+        }
+
+        result = esp_http_client_perform(client);
+        status = esp_http_client_get_status_code(client);
+        esp_http_client_cleanup(client);
+        STICKY_LOGI(kTag,
+                    "http=get attempt=%u/%u status=%d result=%s",
+                    static_cast<unsigned>(attempt),
+                    static_cast<unsigned>(kHttpRequestAttemptLimit),
+                    status,
+                    esp_err_to_name(result));
+
+        const HttpRequestOutcome outcome = classify_http_result(result, status);
+        if (!http_retry_should_continue(outcome, attempt)) {
+            break;
+        }
+        vTaskDelay(pdMS_TO_TICKS(http_retry_delay_ms(attempt)));
+    }
+    return result;
 }
 
 bool unreserved(unsigned char value)
@@ -272,23 +350,8 @@ esp_err_t fetch_month(const SalahSettings &settings,
     response.capacity = kResponseCapacity;
     response.data[0] = '\0';
 
-    esp_http_client_config_t config = {};
-    config.url = url;
-    config.event_handler = http_event_handler;
-    config.user_data = &response;
-    config.crt_bundle_attach = esp_crt_bundle_attach;
-    config.timeout_ms = 20000;
-    config.buffer_size = 2048;
-    config.buffer_size_tx = 1024;
-    esp_http_client_handle_t client = esp_http_client_init(&config);
-    if (client == nullptr) {
-        heap_caps_free(response.data);
-        return ESP_ERR_NO_MEM;
-    }
-
-    esp_err_t result = esp_http_client_perform(client);
-    const int status = esp_http_client_get_status_code(client);
-    esp_http_client_cleanup(client);
+    int status = 0;
+    esp_err_t result = perform_https_get(url, response, 20000, status);
     if (result == ESP_OK && status == 200 && !response.overflow) {
         result = parse_calendar(response.data, schedule);
     } else if (result == ESP_OK) {
@@ -340,26 +403,12 @@ esp_err_t aladhan_validate_location(const SalahSettings &settings)
     }
     response.capacity = kValidationResponseCapacity;
     response.data[0] = '\0';
-    esp_http_client_config_t config = {};
-    config.url = url;
-    config.event_handler = http_event_handler;
-    config.user_data = &response;
-    config.crt_bundle_attach = esp_crt_bundle_attach;
-    config.timeout_ms = 15000;
-    config.buffer_size = 2048;
-    config.buffer_size_tx = 1024;
-    esp_http_client_handle_t client = esp_http_client_init(&config);
-    if (client == nullptr) {
-        heap_caps_free(response.data);
-        return ESP_ERR_NO_MEM;
-    }
-    esp_err_t result = esp_http_client_perform(client);
-    const int status = esp_http_client_get_status_code(client);
-    esp_http_client_cleanup(client);
+    int status = 0;
+    esp_err_t result = perform_https_get(url, response, 15000, status);
     if (result == ESP_OK && status == 200 && !response.overflow) {
         result = parse_validation_response(response.data);
     } else if (result == ESP_OK) {
-        result = status >= 400 && status < 500
+        result = status >= 400 && status < 500 && status != 429
                      ? ESP_ERR_INVALID_RESPONSE
                      : ESP_ERR_HTTP_FETCH_HEADER;
     }

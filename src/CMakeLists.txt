@@ -29,6 +29,7 @@ idf_component_register(
         "sensors/sticky_imu.cpp"
         "sensors/sticky_shake_detector.cpp"
         "services/aladhan_client.cpp"
+        "services/http_retry_policy.cpp"
         "storage/prayer_cache.cpp"
         "storage/settings_model.cpp"
         "storage/settings_store.cpp"

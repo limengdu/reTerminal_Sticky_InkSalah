@@ -93,6 +93,11 @@ compile_and_run setup_network_readiness_test \
     test/setup_network_readiness_test.cpp \
     src/network/setup_network_readiness.cpp
 
+compile_and_run http_retry_policy_test \
+    -Isrc/services \
+    test/http_retry_policy_test.cpp \
+    src/services/http_retry_policy.cpp
+
 compile_and_run captive_dns_protocol_test \
     -Isrc/network \
     test/captive_dns_protocol_test.cpp \
@@ -108,4 +113,4 @@ compile_and_run location_catalog_test \
     test/location_catalog_test.cpp \
     src/location/location_catalog.cpp
 
-echo "[host-test] PASS ${passed_count}/11"
+echo "[host-test] PASS ${passed_count}/12"
