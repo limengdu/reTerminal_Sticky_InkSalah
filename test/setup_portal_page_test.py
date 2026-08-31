@@ -45,6 +45,21 @@ def main() -> None:
         "loadOffsets();loadLocations();scanNetworks();" in page,
         "The page must scan nearby Wi-Fi networks on startup.",
     )
+    require(
+        '<form id="setup" class="card" method="post" action="/save" novalidate>'
+        in page,
+        "Captive portal validation must be handled by the page instead of the phone browser.",
+    )
+    require(
+        "function validateSetup()" in page
+        and "q('country').value" in page
+        and "q('city').value" in page,
+        "Submitting incomplete setup data must show an explicit page error.",
+    )
+    require(
+        "if(!validateSetup())return" in page,
+        "The submit handler must run explicit setup validation before posting.",
+    )
 
 
 if __name__ == "__main__":

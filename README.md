@@ -86,7 +86,7 @@ pio device monitor --port /dev/cu.usbmodemXXXX --baud 115200
 5. 从下拉框选择国家和城市；目录外城市使用 `Other city` 输入。
 6. 确认手机自动选择的 UTC 偏移。
 7. 检查页面推荐的计算机构，并选择本地清真寺使用的 Asr 学派。
-8. 按 `Check and save`。设备会先验证 Wi-Fi、互联网时间和 AlAdhan 礼拜数据，全部成功后才保存并重启。
+8. 按 `Check and save`。页面会明确标出需要补充的 Wi-Fi、国家或城市；信息完整后，设备会验证 Wi-Fi、互联网时间和 AlAdhan 礼拜数据，全部成功后才保存并重启。
 
 计算机构的编号与名称来自 [AlAdhan 官方方法接口](https://api.aladhan.com/v1/methods)。国家名称来自 ISO 3166，常用城市建议来自 AlAdhan 公开城市目录。目录外城市会调用 AlAdhan `timingsByCity` 接口验证，验证通过后才会保存。礼拜时间应与当地清真寺公布的时刻表核对；当地清真寺的做法是最终依据。
 
