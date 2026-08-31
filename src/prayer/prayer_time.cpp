@@ -159,6 +159,27 @@ const char *prayer_id_name(PrayerId prayer)
     }
 }
 
+const char *prayer_hijri_month_name(uint8_t month)
+{
+    constexpr const char *kMonthNames[] = {
+        "Muharram",
+        "Safar",
+        "Rabi al-Awwal",
+        "Rabi al-Thani",
+        "Jumada al-Ula",
+        "Jumada al-Akhirah",
+        "Rajab",
+        "Shaban",
+        "Ramadan",
+        "Shawwal",
+        "Dhu al-Qadah",
+        "Dhu al-Hijjah",
+    };
+    return month >= 1U && month <= 12U
+               ? kMonthNames[month - 1U]
+               : "Hijri";
+}
+
 bool prayer_date_equal(const PrayerDate &left, const PrayerDate &right)
 {
     return left.year == right.year && left.month == right.month &&

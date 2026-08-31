@@ -38,6 +38,7 @@ idf_component_register(
         "ui/battery_status_overlay_theme.cpp"
         "ui/canvas.cpp"
         "ui/font.cpp"
+        "ui/islamic_background_asset.cpp"
         "ui/prayer_pages.cpp"
     INCLUDE_DIRS
         "."

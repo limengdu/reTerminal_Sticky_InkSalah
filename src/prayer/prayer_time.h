@@ -68,6 +68,9 @@ bool prayer_find_next(const PrayerDay &today,
 uint32_t prayer_refresh_interval_seconds(uint16_t minutes_until);
 
 const char *prayer_id_name(PrayerId prayer);
+// Returns an ASCII-only Hijri month label suitable for the built-in font.
+// 返回适合内置点阵字体显示的纯 ASCII 回历月份名称。
+const char *prayer_hijri_month_name(uint8_t month);
 PrayerTimeSlot prayer_id_slot(PrayerId prayer);
 
 bool prayer_date_valid(const PrayerDate &date);

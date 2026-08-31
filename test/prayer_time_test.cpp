@@ -62,6 +62,11 @@ int main()
     assert(prayer_refresh_interval_seconds(11U) == 300U);
     assert(prayer_refresh_interval_seconds(10U) == 60U);
 
+    assert(std::strcmp(prayer_hijri_month_name(3U), "Rabi al-Awwal") == 0);
+    assert(std::strcmp(prayer_hijri_month_name(6U), "Jumada al-Akhirah") == 0);
+    assert(std::strcmp(prayer_hijri_month_name(11U), "Dhu al-Qadah") == 0);
+    assert(std::strcmp(prayer_hijri_month_name(0U), "Hijri") == 0);
+
     const PrayerDate leap_day = prayer_date_next({2028U, 2U, 28U});
     assert(prayer_date_equal(leap_day, {2028U, 2U, 29U}));
     const PrayerDate new_year = prayer_date_next({2026U, 12U, 31U});

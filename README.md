@@ -202,10 +202,18 @@ python3 tools/preview_setup_portal.py --port 8766
 墨水屏页面预览器会调用固件实际使用的 `Canvas` 与 `prayer_pages`：
 
 ```bash
-g++ -std=c++17 -Isrc/prayer -Isrc/storage -Isrc/ui tools/render_ui_preview.cpp src/prayer/prayer_time.cpp src/storage/settings_model.cpp src/ui/arabic_prayer_assets.cpp src/ui/canvas.cpp src/ui/font.cpp src/ui/prayer_pages.cpp -o /tmp/sticky_salah_ui_preview
+g++ -std=c++17 -Isrc/prayer -Isrc/storage -Isrc/ui tools/render_ui_preview.cpp src/prayer/prayer_time.cpp src/storage/settings_model.cpp src/ui/arabic_prayer_assets.cpp src/ui/islamic_background_asset.cpp src/ui/canvas.cpp src/ui/font.cpp src/ui/prayer_pages.cpp -o /tmp/sticky_salah_ui_preview
 /tmp/sticky_salah_ui_preview landscape schedule /tmp/sticky_salah_landscape.pgm
 /tmp/sticky_salah_ui_preview portrait schedule /tmp/sticky_salah_portrait.pgm
 /tmp/sticky_salah_ui_preview portrait setup /tmp/sticky_salah_setup.pgm
+```
+
+竖屏礼拜页使用可追溯的黑白伊斯兰几何背景。设计源图保存在
+`assets/ui/islamic_prayer_background_source.png`，安装 `ffmpeg` 后可重新生成
+固件中的 1-bit 位图：
+
+```bash
+python3 tools/generate_islamic_background_asset.py assets/ui/islamic_prayer_background_source.png src/ui/islamic_background_asset.cpp
 ```
 
 一句话总结：配网页和墨水屏页面都能先在电脑上看，再烧录到硬件。

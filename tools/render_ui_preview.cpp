@@ -73,6 +73,7 @@ int main(int argc, char **argv)
         settings_store_defaults(settings);
         settings.configured = true;
         std::strcpy(settings.wifi_ssid, "Home");
+        std::strcpy(settings.city, "Shenzhen");
         PrayerDay today = sample_day();
         PrayerPageModel model = {};
         model.settings = &settings;

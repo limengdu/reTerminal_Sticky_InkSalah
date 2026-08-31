@@ -73,7 +73,13 @@ int main()
     canvas.set_rotation(CanvasRotation::Deg90Clockwise);
     prayer_page_render_schedule(canvas, model);
     assert(canvas.width() == 480U && canvas.height() == 800U);
-    assert(dark_pixels(canvas) > 90000U);
+    const size_t portrait_dark_pixels = dark_pixels(canvas);
+    assert(portrait_dark_pixels > 30000U);
+    assert(portrait_dark_pixels < 60000U);
+    assert(canvas.pixel_at(30, 220) == GrayLevel::White);
+    assert(canvas.pixel_at(54, 570) == GrayLevel::Black);
+    assert(canvas.pixel_at(54, 468) == GrayLevel::White);
+    assert(dark_pixels_below(canvas, 700) > 2500U);
 
     prayer_page_render_setup(canvas,
                              "Sticky-Salah-A1B2",
