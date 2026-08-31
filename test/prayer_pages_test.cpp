@@ -4,6 +4,7 @@
 
 #include "arabic_prayer_assets.h"
 #include "canvas.h"
+#include "islamic_background_asset.h"
 #include "prayer_pages.h"
 
 PrayerDay make_day()
@@ -67,8 +68,14 @@ int main()
     model.online = true;
 
     prayer_page_render_schedule(canvas, model);
-    assert(dark_pixels(canvas) > 80000U);
-    assert(canvas.pixel_at(30, 80) == GrayLevel::Black);
+    const size_t landscape_dark_pixels = dark_pixels(canvas);
+    assert(landscape_dark_pixels > 25000U);
+    assert(landscape_dark_pixels < 55000U);
+    assert(canvas.pixel_at(7, 55) == GrayLevel::Black);
+    assert(canvas.pixel_at(464, 260) == GrayLevel::Black);
+    assert(canvas.pixel_at(464, 166) == GrayLevel::White);
+    assert(canvas.pixel_at(100, 320) == GrayLevel::White);
+    assert(dark_pixels_below(canvas, 400) > 1000U);
 
     canvas.set_rotation(CanvasRotation::Deg90Clockwise);
     prayer_page_render_schedule(canvas, model);
@@ -84,8 +91,12 @@ int main()
     prayer_page_render_setup(canvas,
                              "Sticky-Salah-A1B2",
                              "sticky-salah");
-    assert(canvas.pixel_at(30, 196) == GrayLevel::Black);
-    assert(dark_pixels_below(canvas, 620) > 500U);
+    const size_t setup_dark_pixels = dark_pixels(canvas);
+    assert(setup_dark_pixels > 35000U);
+    assert(setup_dark_pixels < 65000U);
+    assert(canvas.pixel_at(12, 12) == GrayLevel::Black);
+    assert(canvas.pixel_at(240, 250) == GrayLevel::White);
+    assert(dark_pixels_below(canvas, 620) > 5000U);
 
     for (PrayerId prayer : {PrayerId::Fajr,
                             PrayerId::Dhuhr,
@@ -96,5 +107,14 @@ int main()
         assert(asset.data != nullptr);
         assert(asset.width > 20U && asset.height > 10U);
     }
+
+    const IslamicBackgroundAsset setup_background =
+        islamic_setup_background_asset();
+    assert(setup_background.width == 480U);
+    assert(setup_background.height == 800U);
+    const IslamicBackgroundAsset landscape_background =
+        islamic_landscape_background_asset();
+    assert(landscape_background.width == 800U);
+    assert(landscape_background.height == 480U);
     return 0;
 }

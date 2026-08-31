@@ -4,7 +4,7 @@ Sticky Salah 是面向 Seeed Studio reTerminal Sticky 的原生穆斯林礼拜�
 
 ## 主要功能
 
-- 默认竖屏大字号日程，横向摆放时切换为五卡片日程。
+- 默认竖屏大字号日程，横向摆放时切换为双栏礼拜时间轴。
 - 英文礼拜名称与预先生成的阿拉伯文字形。
 - 公历、伊斯兰历、当前城市、同步状态与电池电量。
 - 首次开机使用标准 Captive Portal，手机连接热点后可自动打开配网页。
@@ -202,18 +202,20 @@ python3 tools/preview_setup_portal.py --port 8766
 墨水屏页面预览器会调用固件实际使用的 `Canvas` 与 `prayer_pages`：
 
 ```bash
-g++ -std=c++17 -Isrc/prayer -Isrc/storage -Isrc/ui tools/render_ui_preview.cpp src/prayer/prayer_time.cpp src/storage/settings_model.cpp src/ui/arabic_prayer_assets.cpp src/ui/islamic_background_asset.cpp src/ui/canvas.cpp src/ui/font.cpp src/ui/prayer_pages.cpp -o /tmp/sticky_salah_ui_preview
+g++ -std=c++17 -Isrc/prayer -Isrc/storage -Isrc/ui tools/render_ui_preview.cpp src/prayer/prayer_time.cpp src/storage/settings_model.cpp src/ui/arabic_prayer_assets.cpp src/ui/islamic_background_asset.cpp src/ui/islamic_landscape_background_asset.cpp src/ui/islamic_setup_background_asset.cpp src/ui/canvas.cpp src/ui/font.cpp src/ui/prayer_pages.cpp -o /tmp/sticky_salah_ui_preview
 /tmp/sticky_salah_ui_preview landscape schedule /tmp/sticky_salah_landscape.pgm
 /tmp/sticky_salah_ui_preview portrait schedule /tmp/sticky_salah_portrait.pgm
 /tmp/sticky_salah_ui_preview portrait setup /tmp/sticky_salah_setup.pgm
 ```
 
-竖屏礼拜页使用可追溯的黑白伊斯兰几何背景。设计源图保存在
-`assets/ui/islamic_prayer_background_source.png`，安装 `ffmpeg` 后可重新生成
+竖屏礼拜页、首次 Wi-Fi 设置页和横屏礼拜页分别使用可追溯的黑白伊斯兰
+几何背景。设计源图统一保存在 `assets/ui/`，安装 `ffmpeg` 后可重新生成
 固件中的 1-bit 位图：
 
 ```bash
 python3 tools/generate_islamic_background_asset.py assets/ui/islamic_prayer_background_source.png src/ui/islamic_background_asset.cpp
+python3 tools/generate_islamic_background_asset.py assets/ui/islamic_setup_background_source.png src/ui/islamic_setup_background_asset.cpp --width 480 --height 800 --symbol kIslamicSetupBackground --function islamic_setup_background_asset
+python3 tools/generate_islamic_background_asset.py assets/ui/islamic_landscape_background_source.png src/ui/islamic_landscape_background_asset.cpp --width 800 --height 480 --symbol kIslamicLandscapeBackground --function islamic_landscape_background_asset
 ```
 
 一句话总结：配网页和墨水屏页面都能先在电脑上看，再烧录到硬件。

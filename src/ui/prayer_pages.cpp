@@ -90,9 +90,9 @@ void draw_arabic_asset(Canvas &canvas,
     }
 }
 
-void draw_islamic_background(Canvas &canvas)
+void draw_background_asset(Canvas &canvas,
+                           const IslamicBackgroundAsset &asset)
 {
-    const IslamicBackgroundAsset asset = islamic_prayer_background_asset();
     if (asset.data == nullptr || asset.width != canvas.width() ||
         asset.height != canvas.height()) {
         return;
@@ -152,23 +152,27 @@ void draw_timeline_marker(Canvas &canvas, int x, int y, bool selected)
     canvas.draw_circle(x, y, 6, GrayLevel::Black);
 }
 
-void draw_header(Canvas &canvas, const PrayerPageModel &model)
+void draw_landscape_header(Canvas &canvas, const PrayerPageModel &model)
 {
-    char date[32] = {};
-    std::snprintf(date,
-                  sizeof(date),
+    canvas.fill_rect(0, 0, static_cast<int>(canvas.width()), 54,
+                     GrayLevel::White);
+    const size_t city_length = std::strlen(model.settings->city);
+    canvas.draw_text(18,
+                     12,
+                     model.settings->city,
+                     city_length <= 18U ? 2U : 1U,
+                     GrayLevel::Black);
+
+    char gregorian[32] = {};
+    std::snprintf(gregorian,
+                  sizeof(gregorian),
                   "%s  %02u/%02u/%04u",
                   model.today->weekday,
                   static_cast<unsigned>(model.today->date.day),
                   static_cast<unsigned>(model.today->date.month),
                   static_cast<unsigned>(model.today->date.year));
-    canvas.draw_text(18, 16, model.settings->city, 2, GrayLevel::Black);
-    draw_centered(canvas,
-                  static_cast<int>(canvas.width()) / 2,
-                  16,
-                  date,
-                  2,
-                  GrayLevel::DarkGray);
+    draw_centered(canvas, 410, 12, gregorian, 2, GrayLevel::Black);
+
     char hijri[48] = {};
     std::snprintf(hijri,
                   sizeof(hijri),
@@ -176,116 +180,92 @@ void draw_header(Canvas &canvas, const PrayerPageModel &model)
                   static_cast<unsigned>(model.today->hijri_day),
                   prayer_hijri_month_name(model.today->hijri_month),
                   static_cast<unsigned>(model.today->hijri_year));
-    draw_centered(canvas,
-                  static_cast<int>(canvas.width()) / 2,
-                  42,
-                  hijri,
-                  1,
-                  GrayLevel::DarkGray);
-    canvas.draw_text(static_cast<int>(canvas.width()) - 170,
-                     42,
+    draw_centered(canvas, 410, 37, hijri, 1, GrayLevel::Black);
+    canvas.draw_text(622,
+                     37,
                      model.online ? "SYNCED" : "CACHED",
                      1,
-                     GrayLevel::DarkGray);
-}
-
-void draw_next_card(Canvas &canvas,
-                    const PrayerPageModel &model,
-                    int x,
-                    int y,
-                    int width,
-                    int height)
-{
-    canvas.fill_rect(x, y, width, height, GrayLevel::Black);
-    draw_centered(canvas,
-                  x + width / 2,
-                  y + 18,
-                  "NEXT PRAYER",
-                  2,
-                  GrayLevel::White);
-    const char *name = prayer_id_name(model.next.prayer);
-    const uint8_t name_scale = width >= 700 ? 7U : 5U;
-    draw_centered(canvas,
-                  x + width / 2,
-                  y + 54,
-                  name,
-                  name_scale,
-                  GrayLevel::White);
-    char time[6] = {};
-    format_time(model.next.time_minutes, time);
-    draw_centered(canvas,
-                  x + width / 2,
-                  y + 54 + name_scale * 8,
-                  time,
-                  width >= 700 ? 6U : 5U,
-                  GrayLevel::White);
-    char countdown[24] = {};
-    format_countdown(model.next.minutes_until, countdown, sizeof(countdown));
-    draw_centered(canvas,
-                  x + width / 2,
-                  y + height - 38,
-                  countdown,
-                  3,
-                  GrayLevel::White);
-    draw_arabic_asset(canvas,
-                      x + width / 2,
-                      y + height - 70,
-                      model.next.prayer,
-                      GrayLevel::White);
+                     GrayLevel::Black);
 }
 
 void draw_landscape_schedule(Canvas &canvas, const PrayerPageModel &model)
 {
-    draw_header(canvas, model);
-    draw_next_card(canvas, model, 18, 70, 764, 214);
+    draw_background_asset(canvas, islamic_landscape_background_asset());
+    draw_landscape_header(canvas, model);
 
-    constexpr int kCardGap = 8;
-    constexpr int kMargin = 18;
-    const int card_width =
-        (static_cast<int>(canvas.width()) - 2 * kMargin - 4 * kCardGap) / 5;
-    const int card_y = 302;
+    draw_centered(canvas,
+                  200,
+                  142,
+                  model.next.tomorrow ? "TOMORROW'S FIRST PRAYER"
+                                      : "NEXT PRAYER",
+                  2,
+                  GrayLevel::Black);
+    draw_centered(canvas,
+                  200,
+                  178,
+                  prayer_id_name(model.next.prayer),
+                  6,
+                  GrayLevel::Black);
+    char next_time[6] = {};
+    format_time(model.next.time_minutes, next_time);
+    draw_centered(canvas, 200, 232, next_time, 7, GrayLevel::Black);
+    draw_arabic_asset(canvas,
+                      200,
+                      293,
+                      model.next.prayer,
+                      GrayLevel::Black);
+    char countdown[24] = {};
+    format_countdown(model.next.minutes_until,
+                     countdown,
+                     sizeof(countdown));
+    draw_centered(canvas, 200, 338, countdown, 2, GrayLevel::Black);
+
+    char sunrise[16] = {};
+    format_time(model.today->minutes[
+                    static_cast<size_t>(PrayerTimeSlot::Sunrise)],
+                next_time);
+    std::snprintf(sunrise, sizeof(sunrise), "SUNRISE %s", next_time);
+    draw_centered(canvas, 200, 378, sunrise, 1, GrayLevel::Black);
+
+    canvas.draw_text(456, 126, "TODAY'S PRAYERS", 2, GrayLevel::Black);
+    constexpr int kTimelineX = 454;
+    constexpr int kFirstCenterY = 166;
+    constexpr int kRowStep = 47;
+    canvas.draw_line(kTimelineX,
+                     kFirstCenterY,
+                     kTimelineX,
+                     kFirstCenterY + 4 * kRowStep,
+                     GrayLevel::Black);
     for (size_t index = 0U; index < 5U; ++index) {
         const PrayerId prayer = kPrayers[index];
         const uint16_t prayer_minutes = model.today->minutes[
             static_cast<size_t>(prayer_id_slot(prayer))];
         const bool selected = prayer == model.next.prayer && !model.next.tomorrow;
-        const bool past = model.current_minutes > prayer_minutes;
-        const int x = kMargin + static_cast<int>(index) * (card_width + kCardGap);
-        const GrayLevel background = selected ? GrayLevel::Black
-                                              : GrayLevel::White;
-        const GrayLevel foreground = selected
-                                         ? GrayLevel::White
-                                         : (past ? GrayLevel::LightGray
-                                                 : GrayLevel::Black);
-        canvas.fill_rect(x, card_y, card_width, 156, background);
-        canvas.draw_rect(x, card_y, card_width, 156,
-                         past && !selected ? GrayLevel::LightGray
-                                           : GrayLevel::Black);
-        draw_centered(canvas,
-                      x + card_width / 2,
-                      card_y + 16,
-                      prayer_id_name(prayer),
-                      2,
-                      foreground);
+        const int center_y = kFirstCenterY + static_cast<int>(index) * kRowStep;
+        draw_timeline_marker(canvas, kTimelineX, center_y, selected);
+        if (selected) {
+            canvas.draw_line(476, center_y + 20, 780, center_y + 20,
+                             GrayLevel::Black);
+        }
+        canvas.draw_text(478,
+                         center_y - 7,
+                         prayer_id_name(prayer),
+                         2,
+                         GrayLevel::Black);
         char time[6] = {};
         format_time(prayer_minutes, time);
-        draw_centered(canvas,
-                      x + card_width / 2,
-                      card_y + 64,
-                      time,
-                      3,
-                      foreground);
+        canvas.draw_text(714, center_y - 7, time, 2, GrayLevel::Black);
         draw_arabic_asset(canvas,
-                          x + card_width / 2,
-                          card_y + 112,
+                          632,
+                          center_y - 16,
                           prayer,
-                          foreground);
+                          GrayLevel::Black);
     }
 }
 
 void draw_portrait_schedule(Canvas &canvas, const PrayerPageModel &model)
 {
-    draw_islamic_background(canvas);
+    draw_background_asset(canvas, islamic_prayer_background_asset());
     draw_portrait_header(canvas, model);
 
     draw_centered(canvas,
@@ -369,39 +349,66 @@ void prayer_page_render_setup(Canvas &canvas,
 {
     canvas.clear();
     if (canvas.width() < canvas.height()) {
+        draw_background_asset(canvas, islamic_setup_background_asset());
+        canvas.fill_rect(88, 136, 304, 96, GrayLevel::White);
         draw_centered(canvas,
                       static_cast<int>(canvas.width()) / 2,
-                      74,
+                      150,
                       "STICKY SALAH",
                       4);
         draw_centered(canvas,
                       static_cast<int>(canvas.width()) / 2,
-                      132,
-                      "FIRST-TIME SETUP",
+                      198,
+                      "FIRST-TIME WI-FI SETUP",
                       2,
-                      GrayLevel::DarkGray);
-        canvas.draw_rect(30,
-                         196,
-                         static_cast<int>(canvas.width()) - 60,
-                         360);
-        canvas.draw_text(50, 228, "1. CONNECT PHONE TO", 2);
+                      GrayLevel::Black);
+
         draw_centered(canvas,
                       static_cast<int>(canvas.width()) / 2,
-                      280,
+                      270,
+                      "1  CONNECT YOUR PHONE TO",
+                      2,
+                      GrayLevel::Black);
+        draw_centered(canvas,
+                      static_cast<int>(canvas.width()) / 2,
+                      310,
                       ap_ssid,
-                      2);
-        canvas.draw_text(50, 352, "2. PASSWORD", 2);
+                      std::strlen(ap_ssid) <= 31U ? 2U : 1U,
+                      GrayLevel::Black);
+        canvas.draw_line(100, 350, 380, 350, GrayLevel::Black);
+
         draw_centered(canvas,
                       static_cast<int>(canvas.width()) / 2,
-                      406,
-                      ap_password,
-                      3);
-        draw_centered(canvas,
-                      static_cast<int>(canvas.width()) / 2,
-                      642,
-                      "OPEN HTTP://192.168.4.1",
+                      370,
+                      "2  ENTER THE PASSWORD",
                       2,
-                      GrayLevel::DarkGray);
+                      GrayLevel::Black);
+        draw_centered(canvas,
+                      static_cast<int>(canvas.width()) / 2,
+                      410,
+                      ap_password,
+                      3,
+                      GrayLevel::Black);
+        canvas.draw_line(100, 454, 380, 454, GrayLevel::Black);
+
+        draw_centered(canvas,
+                      static_cast<int>(canvas.width()) / 2,
+                      476,
+                      "3  OPEN THE SETUP PAGE",
+                      2,
+                      GrayLevel::Black);
+        draw_centered(canvas,
+                      static_cast<int>(canvas.width()) / 2,
+                      520,
+                      "192.168.4.1",
+                      3,
+                      GrayLevel::Black);
+        draw_centered(canvas,
+                      static_cast<int>(canvas.width()) / 2,
+                      582,
+                      "THE PAGE SHOULD OPEN AUTOMATICALLY",
+                      1,
+                      GrayLevel::Black);
         return;
     }
     draw_centered(canvas,

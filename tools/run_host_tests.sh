@@ -82,6 +82,8 @@ compile_and_run prayer_pages_test \
     src/storage/settings_model.cpp \
     src/ui/arabic_prayer_assets.cpp \
     src/ui/islamic_background_asset.cpp \
+    src/ui/islamic_landscape_background_asset.cpp \
+    src/ui/islamic_setup_background_asset.cpp \
     src/ui/canvas.cpp src/ui/font.cpp src/ui/prayer_pages.cpp
 
 compile_and_run display_orientation_test \
