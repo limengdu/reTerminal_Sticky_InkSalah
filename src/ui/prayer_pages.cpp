@@ -155,17 +155,19 @@ void draw_background_asset(Canvas &canvas,
 
 void draw_portrait_header(Canvas &canvas, const PrayerPageModel &model)
 {
-    // Keep the battery overlay and the two date lines on a clean white band.
-    // 为电量图标和两行日期保留干净的白色顶栏。
-    canvas.fill_rect(0, 0, static_cast<int>(canvas.width()), 112,
+    constexpr int kPageCenterX = 240;
+    // Center three metadata rows above the mihrab ornament.
+    // 在米哈拉布花纹上方居中排列三行信息。
+    canvas.fill_rect(0, 0, static_cast<int>(canvas.width()), 68,
                      GrayLevel::White);
     char city[20] = {};
-    ellipsize(model.settings->city, 15U, city, sizeof(city));
-    canvas.draw_text(18,
-                     12,
-                     city,
-                     2U,
-                     GrayLevel::Black);
+    ellipsize(model.settings->city, 18U, city, sizeof(city));
+    draw_centered(canvas,
+                  kPageCenterX,
+                  4,
+                  city,
+                  2U,
+                  GrayLevel::Black);
 
     char gregorian[32] = {};
     std::snprintf(gregorian,
@@ -175,7 +177,12 @@ void draw_portrait_header(Canvas &canvas, const PrayerPageModel &model)
                   static_cast<unsigned>(model.today->date.day),
                   static_cast<unsigned>(model.today->date.month),
                   static_cast<unsigned>(model.today->date.year));
-    draw_centered(canvas, 240, 40, gregorian, 2, GrayLevel::Black);
+    draw_centered(canvas,
+                  kPageCenterX,
+                  26,
+                  gregorian,
+                  2,
+                  GrayLevel::Black);
 
     char hijri[48] = {};
     std::snprintf(hijri,
@@ -184,10 +191,20 @@ void draw_portrait_header(Canvas &canvas, const PrayerPageModel &model)
                   static_cast<unsigned>(model.today->hijri_day),
                   prayer_hijri_month_name(model.today->hijri_month),
                   static_cast<unsigned>(model.today->hijri_year));
-    draw_centered(canvas, 240, 62, hijri, 2, GrayLevel::Black);
     char source[40] = {};
     format_source(*model.settings, source, sizeof(source));
-    draw_centered(canvas, 240, 84, source, 2, GrayLevel::Black);
+    char metadata[96] = {};
+    std::snprintf(metadata,
+                  sizeof(metadata),
+                  "%s  %s",
+                  hijri,
+                  source);
+    draw_centered(canvas,
+                  kPageCenterX,
+                  48,
+                  metadata,
+                  2,
+                  GrayLevel::Black);
 }
 
 void draw_timeline_marker(Canvas &canvas, int x, int y, bool selected)
@@ -203,16 +220,11 @@ void draw_timeline_marker(Canvas &canvas, int x, int y, bool selected)
 
 void draw_landscape_header(Canvas &canvas, const PrayerPageModel &model)
 {
+    constexpr int kPageCenterX = 400;
     canvas.fill_rect(0, 0, static_cast<int>(canvas.width()), 60,
                      GrayLevel::White);
     char city[24] = {};
     ellipsize(model.settings->city, 18U, city, sizeof(city));
-    canvas.draw_text(18,
-                     12,
-                     city,
-                     2U,
-                     GrayLevel::Black);
-
     char gregorian[32] = {};
     std::snprintf(gregorian,
                   sizeof(gregorian),
@@ -221,7 +233,18 @@ void draw_landscape_header(Canvas &canvas, const PrayerPageModel &model)
                   static_cast<unsigned>(model.today->date.day),
                   static_cast<unsigned>(model.today->date.month),
                   static_cast<unsigned>(model.today->date.year));
-    draw_centered(canvas, 410, 12, gregorian, 2, GrayLevel::Black);
+    char first_row[72] = {};
+    std::snprintf(first_row,
+                  sizeof(first_row),
+                  "%s    %s",
+                  city,
+                  gregorian);
+    draw_centered(canvas,
+                  kPageCenterX,
+                  12,
+                  first_row,
+                  2,
+                  GrayLevel::Black);
 
     char hijri[48] = {};
     std::snprintf(hijri,
@@ -230,15 +253,26 @@ void draw_landscape_header(Canvas &canvas, const PrayerPageModel &model)
                   static_cast<unsigned>(model.today->hijri_day),
                   prayer_hijri_month_name(model.today->hijri_month),
                   static_cast<unsigned>(model.today->hijri_year));
-    draw_centered(canvas, 410, 37, hijri, 2, GrayLevel::Black);
-    char source[40] = {};
-    format_source(*model.settings, source, sizeof(source));
-    canvas.draw_text(18, 37, source, 2, GrayLevel::Black);
-    canvas.draw_text(622,
-                     37,
-                     model.online ? "SYNCED" : "LOCAL",
-                     2,
-                     GrayLevel::Black);
+    char rule[32] = {};
+    std::snprintf(
+        rule,
+        sizeof(rule),
+        "%s / %s",
+        settings_method_short_name(model.settings->calculation_method),
+        settings_asr_school_name(model.settings->asr_school));
+    char second_row[96] = {};
+    std::snprintf(second_row,
+                  sizeof(second_row),
+                  "%s    %s    %s",
+                  rule,
+                  hijri,
+                  model.online ? "SYNCED" : "LOCAL");
+    draw_centered(canvas,
+                  kPageCenterX,
+                  37,
+                  second_row,
+                  2,
+                  GrayLevel::Black);
 }
 
 void draw_landscape_schedule(Canvas &canvas, const PrayerPageModel &model)
@@ -249,14 +283,14 @@ void draw_landscape_schedule(Canvas &canvas, const PrayerPageModel &model)
     const bool between = model.window.between_prayers;
     draw_centered(canvas,
                   200,
-                  116,
+                  236,
                   between ? "BETWEEN PRAYER WINDOWS"
                           : "CURRENT PRAYER WINDOW",
                   2,
                   GrayLevel::Black);
     draw_centered(canvas,
                   200,
-                  154,
+                  264,
                   between ? "Next: Dhuhr"
                           : prayer_id_name(model.window.prayer),
                   between ? 4 : 6,
@@ -267,11 +301,11 @@ void draw_landscape_schedule(Canvas &canvas, const PrayerPageModel &model)
     format_time(model.window.end_minutes, end);
     char range[20] = {};
     std::snprintf(range, sizeof(range), "%s - %s", start, end);
-    draw_centered(canvas, 200, 218, range, 4, GrayLevel::Black);
+    draw_centered(canvas, 200, 322, range, 4, GrayLevel::Black);
     if (!between) {
         draw_arabic_asset(canvas,
                           200,
-                          270,
+                          362,
                           model.window.prayer,
                           GrayLevel::Black);
     }
@@ -279,7 +313,7 @@ void draw_landscape_schedule(Canvas &canvas, const PrayerPageModel &model)
     format_remaining(model.window.minutes_remaining,
                      remaining,
                      sizeof(remaining));
-    draw_centered(canvas, 200, 326, remaining, 2, GrayLevel::Black);
+    draw_centered(canvas, 200, 398, remaining, 2, GrayLevel::Black);
     if (model.window.qiyam_active) {
         char qiyam_time[6] = {};
         char qiyam[28] = {};
@@ -288,7 +322,7 @@ void draw_landscape_schedule(Canvas &canvas, const PrayerPageModel &model)
                       sizeof(qiyam),
                       "QIYAM SINCE %s",
                       qiyam_time);
-        draw_centered(canvas, 200, 356, qiyam, 2, GrayLevel::Black);
+        draw_centered(canvas, 200, 420, qiyam, 2, GrayLevel::Black);
     }
     char next_time[6] = {};
     format_time(model.next.time_minutes, next_time);
@@ -298,17 +332,20 @@ void draw_landscape_schedule(Canvas &canvas, const PrayerPageModel &model)
                   "NEXT %s %s",
                   prayer_id_name(model.next.prayer),
                   next_time);
-    draw_centered(canvas, 200, 390, next_line, 2, GrayLevel::Black);
+    draw_centered(canvas, 220, 444, next_line, 2, GrayLevel::Black);
 
-    canvas.draw_text(456, 92, "TODAY'S TIMES", 2, GrayLevel::Black);
-    constexpr int kTimelineX = 454;
-    constexpr int kFirstCenterY = 132;
-    constexpr int kRowStep = 43;
-    canvas.draw_line(kTimelineX,
-                     kFirstCenterY,
-                     kTimelineX,
-                     kFirstCenterY + 6 * kRowStep,
-                     GrayLevel::Black);
+    constexpr int kTableCenterX = 565;
+    constexpr int kEnglishX = 440;
+    constexpr int kArabicCenterX = 575;
+    constexpr int kTimeX = 630;
+    constexpr int kFirstCenterY = 250;
+    constexpr int kRowStep = 34;
+    draw_centered(canvas,
+                  kTableCenterX,
+                  214,
+                  "TODAY'S TIMES",
+                  2,
+                  GrayLevel::Black);
     for (size_t index = 0U; index < 7U; ++index) {
         const TimelineEntry &entry = kTimeline[index];
         const uint16_t prayer_minutes = model.today->minutes[
@@ -318,22 +355,26 @@ void draw_landscape_schedule(Canvas &canvas, const PrayerPageModel &model)
              entry.prayer == model.window.prayer) ||
             (entry.slot == PrayerTimeSlot::Qiyam &&
              model.window.qiyam_active);
-        const int center_y = kFirstCenterY + static_cast<int>(index) * kRowStep;
-        draw_timeline_marker(canvas, kTimelineX, center_y, selected);
-        if (selected) {
-            canvas.draw_line(476, center_y + 20, 780, center_y + 20,
-                             GrayLevel::Black);
-        }
-        canvas.draw_text(478,
+        const int center_y = kFirstCenterY +
+                             static_cast<int>(index) * kRowStep;
+        const TextWeight weight = selected ? TextWeight::Bold
+                                           : TextWeight::Regular;
+        canvas.draw_text(kEnglishX,
                          center_y - 7,
                          entry.name,
                          2,
-                         GrayLevel::Black);
+                         GrayLevel::Black,
+                         weight);
         char time[6] = {};
         format_time(prayer_minutes, time);
-        canvas.draw_text(690, center_y - 7, time, 2, GrayLevel::Black);
+        canvas.draw_text(kTimeX,
+                         center_y - 7,
+                         time,
+                         2,
+                         GrayLevel::Black,
+                         weight);
         draw_arabic_asset(canvas,
-                          632,
+                          kArabicCenterX,
                           center_y - 16,
                           entry.prayer,
                           GrayLevel::Black);
@@ -348,14 +389,14 @@ void draw_portrait_schedule(Canvas &canvas, const PrayerPageModel &model)
     const bool between = model.window.between_prayers;
     draw_centered(canvas,
                   240,
-                  166,
+                  190,
                   between ? "BETWEEN PRAYER WINDOWS"
                           : "CURRENT PRAYER WINDOW",
                   2,
                   GrayLevel::Black);
     draw_centered(canvas,
                   240,
-                  188,
+                  218,
                   between ? "Next: Dhuhr"
                           : prayer_id_name(model.window.prayer),
                   between ? 4 : 6,
@@ -366,11 +407,11 @@ void draw_portrait_schedule(Canvas &canvas, const PrayerPageModel &model)
     format_time(model.window.end_minutes, end);
     char range[20] = {};
     std::snprintf(range, sizeof(range), "%s - %s", start, end);
-    draw_centered(canvas, 240, 244, range, 5, GrayLevel::Black);
+    draw_centered(canvas, 240, 272, range, 5, GrayLevel::Black);
     if (!between) {
         draw_arabic_asset(canvas,
                           240,
-                          300,
+                          318,
                           model.window.prayer,
                           GrayLevel::Black);
     }
@@ -378,7 +419,7 @@ void draw_portrait_schedule(Canvas &canvas, const PrayerPageModel &model)
     format_remaining(model.window.minutes_remaining,
                      remaining,
                      sizeof(remaining));
-    draw_centered(canvas, 240, 350, remaining, 2, GrayLevel::Black);
+    draw_centered(canvas, 240, 354, remaining, 2, GrayLevel::Black);
     if (model.window.qiyam_active) {
         char qiyam_time[6] = {};
         char qiyam[28] = {};
@@ -390,14 +431,14 @@ void draw_portrait_schedule(Canvas &canvas, const PrayerPageModel &model)
         draw_centered(canvas, 240, 378, qiyam, 2, GrayLevel::Black);
     }
 
-    canvas.draw_line(96, 416, 216, 416, GrayLevel::Black);
-    canvas.draw_circle(240, 416, 4, GrayLevel::Black);
-    canvas.draw_line(264, 416, 384, 416, GrayLevel::Black);
-    canvas.draw_text(24, 432, "TODAY'S TIMES", 2, GrayLevel::Black);
+    canvas.draw_line(96, 404, 216, 404, GrayLevel::Black);
+    canvas.draw_circle(240, 404, 4, GrayLevel::Black);
+    canvas.draw_line(264, 404, 384, 404, GrayLevel::Black);
+    canvas.draw_text(24, 420, "TODAY'S TIMES", 2, GrayLevel::Black);
 
     constexpr int kTimelineX = 44;
-    constexpr int kFirstCenterY = 470;
-    constexpr int kRowStep = 40;
+    constexpr int kFirstCenterY = 456;
+    constexpr int kRowStep = 29;
     canvas.draw_line(kTimelineX,
                      kFirstCenterY,
                      kTimelineX,
@@ -415,7 +456,7 @@ void draw_portrait_schedule(Canvas &canvas, const PrayerPageModel &model)
         const int center_y = kFirstCenterY + static_cast<int>(index) * kRowStep;
         draw_timeline_marker(canvas, kTimelineX, center_y, selected);
         if (selected) {
-            canvas.draw_line(64, center_y + 22, 454, center_y + 22,
+            canvas.draw_line(64, center_y + 14, 454, center_y + 14,
                              GrayLevel::Black);
         }
         canvas.draw_text(68,

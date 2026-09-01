@@ -9,6 +9,7 @@ Sticky Salah 是面向 Seeed Studio reTerminal Sticky 的原生穆斯林礼拜�
 - `Qiyam` 表示夜晚最后三分之一的开始：从当天 `Maghrib` 到次日 `Fajr` 的夜间长度计算得出，它作为与 `Isha` 窗口重叠的自愿礼拜时段显示。
 - 提供常见计算机构、`Standard` 与 `Hanafi` 两类 Asr 规则，以及七个时间各自的 ±30 分钟微调。
 - 默认竖屏显示；设备真实横放后，由 IMU 唤醒并立即切换横屏页面。
+- 横竖屏礼拜页使用画图模型创作的米哈拉布尖拱、Girih 交织纹、阿拉伯蔓草纹与清真寺灯装饰，顶部信息、当前礼拜和七项时间分别占用独立区域。
 - 热点网页只负责 Wi-Fi。Wi-Fi 页自动扫描附近网络，列表点击与手动输入可以同时使用。
 - 礼拜设置是设备上的原生竖屏触摸菜单，包含地点、机构、Asr 规则、七项微调和提示音。
 - 设备界面统一使用至少 2 倍点阵字号，当前选项、状态、日期和辅助提示都保持近距离可读。
@@ -83,7 +84,7 @@ pio device monitor --port /dev/cu.usbmodemXXXX --baud 115200
 6. 进入 `LOCATION` 核对地点。点经纬度数值可打开数字键盘精确输入，左右按钮可按 0.1° 调整；时区支持 ±15 分钟和 ±1 小时。
 7. 进入 `CALCULATION` 选择计算机构，以及 `Standard` 或 `Hanafi` Asr 规则。中国默认使用 `Muslim World League + Hanafi`。
 8. 进入 `MINUTE ADJUSTMENTS`，分别为七个时间做 ±30 分钟微调；按需开启 `PRAYER REMINDER`。
-9. 点击 `SAVE & EXIT`。设备会先验证当天能否得到完整时间表，再保存并显示主页面。
+9. 点击 `SAVE & START`。设备会先验证当天能否得到完整时间表，再保存并显示主页面。
 
 公网 IP 只能估算大致地点，所以自动结果需要在设备屏幕上核对。所有礼拜设置最终保存在 NVS。正常运行时双击顶部 AI 按钮可再次打开设备原生设置；在原生菜单中点 `WI-FI SETUP` 可重新进入热点配网。
 
@@ -145,10 +146,10 @@ bash tools/run_host_tests.sh
 成功时会看到：
 
 ```text
-[host-test] PASS 19/19
+[host-test] PASS 20/20
 ```
 
-测试覆盖 HTTP 请求头容量、Wi-Fi 网页职责、Wi-Fi 列表和手动输入、设备最小字号策略、粗体与常规字重、首次设置完成入口、原生设置页持续停留策略、原生设置页触摸区域、经纬度本地计算、Hanafi Asr、七项微调、Qiyam 公式、跨午夜礼拜窗口、页面绘制保护、屏幕方向、深睡唤醒准备、DNS、Wi-Fi 扫描、地区建议以及固件不编译远程礼拜表管线的策略检查。
+测试覆盖 HTTP 请求头容量、Wi-Fi 网页职责、Wi-Fi 列表和手动输入、设备最小字号策略、粗体与常规字重、首次设置完成入口、原生设置页持续停留策略、原生设置页触摸区域、横竖屏花纹安全区与左右视觉重量、横屏顶部信息居中规则、经纬度本地计算、Hanafi Asr、七项微调、Qiyam 公式、跨午夜礼拜窗口、页面绘制保护、屏幕方向、深睡唤醒准备、DNS、Wi-Fi 扫描、地区建议以及固件不编译远程礼拜表管线的策略检查。
 
 一句话总结：不接设备也能先验证核心数学、页面数据流和构建策略。
 
@@ -176,7 +177,7 @@ g++ -std=c++17 -Isrc/prayer -Isrc/storage -Isrc/ui tools/render_ui_preview.cpp s
 /tmp/sticky_salah_ui_preview portrait settings-adjustments /tmp/sticky_salah_adjustments.pgm
 ```
 
-背景设计源图位于 `assets/ui/`，对应的 1-bit 固件资源位于 `src/ui/`。
+画图模型输出的高分辨率横竖屏设计稿和适配设备尺寸的 PNG 位于 `assets/ui/`，对应的 1-bit 固件资源位于 `src/ui/`。竖屏稿按 480×800 布局，横屏稿按 800×480 独立构图，适配过程保持原始比例。
 
 一句话总结：Wi-Fi 网页、主页面和设备原生设置都能在电脑上先看效果。
 

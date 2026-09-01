@@ -69,6 +69,25 @@ size_t dark_pixels_in_rect(const Canvas &canvas,
     return count;
 }
 
+size_t asset_pixels_in_rect(const IslamicBackgroundAsset &asset,
+                            int left,
+                            int top,
+                            int right,
+                            int bottom)
+{
+    size_t count = 0U;
+    for (int y = top; y < bottom; ++y) {
+        for (int x = left; x < right; ++x) {
+            const uint8_t packed = asset.data[
+                static_cast<size_t>(y) * asset.stride + x / 8];
+            if ((packed & static_cast<uint8_t>(1U << (7 - x % 8))) != 0U) {
+                ++count;
+            }
+        }
+    }
+    return count;
+}
+
 int main()
 {
     std::vector<uint8_t> buffer(800U * 480U / 4U, 0xFFU);
@@ -117,6 +136,50 @@ int main()
     assert(dark_pixels_in_rect(canvas, 90, 340, 390, 650) > 2500U);
     assert(dark_pixels_below(canvas, 620) > 5000U);
 
+    const IslamicBackgroundAsset portrait_background =
+        islamic_prayer_background_asset();
+    assert(asset_pixels_in_rect(
+               portrait_background, 0, 0, 480, 60) == 0U);
+    assert(asset_pixels_in_rect(
+               portrait_background, 0, 60, 480, 190) > 4000U);
+    assert(asset_pixels_in_rect(
+               portrait_background, 0, 182, 480, 638) == 0U);
+    assert(asset_pixels_in_rect(
+               portrait_background, 0, 638, 480, 780) > 4000U);
+    const size_t portrait_left_pixels = asset_pixels_in_rect(
+        portrait_background, 0, 0, 240, 800);
+    const size_t portrait_right_pixels = asset_pixels_in_rect(
+        portrait_background, 240, 0, 480, 800);
+    assert(asset_pixels_in_rect(
+               portrait_background, 0, 780, 480, 800) == 0U);
+    assert(portrait_left_pixels > portrait_right_pixels
+               ? portrait_left_pixels - portrait_right_pixels < 1000U
+               : portrait_right_pixels - portrait_left_pixels < 1000U);
+
+    const IslamicBackgroundAsset landscape_background =
+        islamic_landscape_background_asset();
+    assert(asset_pixels_in_rect(
+               landscape_background, 0, 0, 800, 60) == 0U);
+    assert(asset_pixels_in_rect(
+               landscape_background, 0, 60, 800, 230) > 6000U);
+    assert(asset_pixels_in_rect(
+               landscape_background, 105, 230, 375, 450) == 0U);
+    assert(asset_pixels_in_rect(
+               landscape_background, 425, 230, 695, 450) == 0U);
+    assert(asset_pixels_in_rect(
+               landscape_background, 380, 110, 420, 400) > 500U);
+    assert(asset_pixels_in_rect(
+               landscape_background, 0, 380, 110, 480) > 300U);
+    assert(asset_pixels_in_rect(
+               landscape_background, 690, 380, 800, 480) > 300U);
+    const size_t landscape_left_pixels = asset_pixels_in_rect(
+        landscape_background, 0, 0, 400, 480);
+    const size_t landscape_right_pixels = asset_pixels_in_rect(
+        landscape_background, 400, 0, 800, 480);
+    assert(landscape_left_pixels > landscape_right_pixels
+               ? landscape_left_pixels - landscape_right_pixels < 1500U
+               : landscape_right_pixels - landscape_left_pixels < 1500U);
+
     for (PrayerId prayer : {PrayerId::Fajr,
                             PrayerId::Dhuhr,
                             PrayerId::Asr,
@@ -131,8 +194,6 @@ int main()
         islamic_setup_background_asset();
     assert(setup_background.width == 480U);
     assert(setup_background.height == 800U);
-    const IslamicBackgroundAsset landscape_background =
-        islamic_landscape_background_asset();
     assert(landscape_background.width == 800U);
     assert(landscape_background.height == 480U);
     return 0;
