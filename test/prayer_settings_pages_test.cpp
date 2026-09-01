@@ -36,6 +36,16 @@ int main()
 
     std::vector<uint8_t> framebuffer(480U * 800U / 4U, 0xFFU);
     Canvas canvas(480U, 800U, framebuffer.data(), framebuffer.size());
+
+    canvas.clear();
+    canvas.draw_text(20, 20, "TITLE", 2, GrayLevel::Black,
+                     TextWeight::Regular);
+    const size_t regular_text_pixels = black_pixels(canvas);
+    canvas.clear();
+    canvas.draw_text(20, 20, "TITLE", 2, GrayLevel::Black,
+                     TextWeight::Bold);
+    assert(black_pixels(canvas) > regular_text_pixels);
+
     SalahSettings settings = {};
     settings_store_defaults(settings);
     std::strcpy(settings.wifi_ssid, "Home Wi-Fi");

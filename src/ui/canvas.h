@@ -17,6 +17,11 @@ enum class CanvasRotation : uint8_t {
     Deg90CounterClockwise,
 };
 
+enum class TextWeight : uint8_t {
+    Regular,
+    Bold,
+};
+
 constexpr uint8_t kMinimumTextScale = 2U;
 
 class Canvas {
@@ -53,7 +58,8 @@ public:
                      GrayLevel color = GrayLevel::Black);
     void draw_text(int x, int y, const char *text,
                    uint8_t scale = kMinimumTextScale,
-                   GrayLevel color = GrayLevel::Black);
+                   GrayLevel color = GrayLevel::Black,
+                   TextWeight weight = TextWeight::Regular);
 
     // Converts a physical touch coordinate into the current logical page axes.
     // 将物理触摸坐标转换为当前旋转页面使用的逻辑坐标。

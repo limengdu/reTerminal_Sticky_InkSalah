@@ -20,9 +20,15 @@ constexpr const char *kAdjustmentNames[kPrayerAdjustmentCount] = {
     "FAJR", "SUNRISE", "DHUHR", "ASR", "MAGHRIB", "ISHA", "QIYAM",
 };
 
-int text_width(const char *text, uint8_t scale)
+int text_width(const char *text,
+               uint8_t scale,
+               TextWeight weight = TextWeight::Regular)
 {
-    return text == nullptr ? 0 : static_cast<int>(std::strlen(text)) * 6 * scale;
+    if (text == nullptr) {
+        return 0;
+    }
+    const int width = static_cast<int>(std::strlen(text)) * 6 * scale;
+    return width + (weight == TextWeight::Bold ? 1 : 0);
 }
 
 void centered(Canvas &canvas,
@@ -30,10 +36,11 @@ void centered(Canvas &canvas,
               int y,
               const char *text,
               uint8_t scale,
-              GrayLevel color = GrayLevel::Black)
+              GrayLevel color = GrayLevel::Black,
+              TextWeight weight = TextWeight::Regular)
 {
-    canvas.draw_text(center_x - text_width(text, scale) / 2,
-                     y, text, scale, color);
+    canvas.draw_text(center_x - text_width(text, scale, weight) / 2,
+                     y, text, scale, color, weight);
 }
 
 void ellipsize(const char *text,
@@ -85,7 +92,8 @@ void page_base(Canvas &canvas, const char *title, const char *subtitle)
     canvas.clear(GrayLevel::White);
     draw_asset(canvas, islamic_setup_background_asset());
     canvas.fill_rect(22, 42, 436, 730, GrayLevel::White);
-    centered(canvas, 240, 58, title, 3);
+    centered(canvas, 240, 58, title, 3,
+             GrayLevel::Black, TextWeight::Bold);
     centered(canvas, 240, 88, subtitle, 2);
 }
 
@@ -96,14 +104,16 @@ void button(Canvas &canvas,
             int height,
             const char *label,
             bool selected = false,
-            uint8_t scale = 2U)
+            uint8_t scale = 2U,
+            TextWeight weight = TextWeight::Regular)
 {
     canvas.fill_rect(x, y, width, height,
                      selected ? GrayLevel::Black : GrayLevel::White);
     canvas.draw_rect(x, y, width, height, GrayLevel::Black);
     centered(canvas, x + width / 2, y + (height - 7 * scale) / 2,
              label, scale,
-             selected ? GrayLevel::White : GrayLevel::Black);
+             selected ? GrayLevel::White : GrayLevel::Black,
+             weight);
 }
 
 void row(Canvas &canvas,
@@ -116,7 +126,8 @@ void row(Canvas &canvas,
                      selected ? GrayLevel::Black : GrayLevel::White);
     canvas.draw_rect(34, y, 412, 76, GrayLevel::Black);
     canvas.draw_text(50, y + 14, title, 2,
-                     selected ? GrayLevel::White : GrayLevel::Black);
+                     selected ? GrayLevel::White : GrayLevel::Black,
+                     TextWeight::Bold);
     if (value != nullptr && value[0] != '\0') {
         char fitted[32] = {};
         ellipsize(value, 27U, fitted, sizeof(fitted));
@@ -157,11 +168,13 @@ void render_main(Canvas &canvas,
     row(canvas, 370, "PRAYER REMINDER",
         settings.sound_enabled ? "ON" : "OFF");
     row(canvas, 455, "WI-FI SETUP", settings.wifi_ssid);
-    button(canvas, 34, 570, 412, 76, "SAVE & EXIT", true, 2);
+    button(canvas, 34, 570, 412, 76,
+           state.first_time ? "SAVE & START" : "SAVE & EXIT",
+           true, 2, TextWeight::Bold);
     if (!state.first_time) {
-        button(canvas, 34, 660, 412, 60, "CANCEL", false, 2);
+        button(canvas, 34, 660, 412, 60, "DISCARD & EXIT", false, 2);
     } else {
-        centered(canvas, 240, 678, "SAVE TO FINISH FIRST-TIME SETUP", 2);
+        centered(canvas, 240, 678, "REQUIRED TO CONTINUE", 2);
     }
     footer_status(canvas, state);
 }
@@ -175,7 +188,8 @@ void coordinate_row(Canvas &canvas,
     button(canvas, 108, y, 264, 88, value, false, 2);
     button(canvas, 380, y, 66, 88, "+", false, 3);
     canvas.fill_rect(105, y - 10, 270, 22, GrayLevel::White);
-    centered(canvas, 240, y - 6, name, 2);
+    centered(canvas, 240, y - 6, name, 2,
+             GrayLevel::Black, TextWeight::Bold);
 }
 
 void render_location(Canvas &canvas,
@@ -209,7 +223,8 @@ void render_calculation(Canvas &canvas,
     page_base(canvas, "CALCULATION", "CHOOSE THE STANDARD YOU FOLLOW");
     row(canvas, 150, "CALCULATION METHOD",
         settings_method_short_name(settings.calculation_method));
-    centered(canvas, 240, 278, "ASR JURISTIC METHOD", 2);
+    centered(canvas, 240, 278, "ASR JURISTIC METHOD", 2,
+             GrayLevel::Black, TextWeight::Bold);
     button(canvas, 34, 320, 198, 100, "STANDARD",
            settings.asr_school == 0U, 2);
     button(canvas, 248, 320, 198, 100, "HANAFI",
@@ -244,7 +259,8 @@ void render_adjustments(Canvas &canvas,
         std::snprintf(value, sizeof(value), "%+d MIN",
                       static_cast<int>(settings.prayer_adjustments[index]));
         button(canvas, 34, y, 62, 58, "-", false, 3);
-        canvas.draw_text(113, y + 10, kAdjustmentNames[index], 2);
+        canvas.draw_text(113, y + 10, kAdjustmentNames[index], 2,
+                         GrayLevel::Black, TextWeight::Bold);
         canvas.draw_text(270, y + 14, value, 2);
         button(canvas, 384, y, 62, 58, "+", false, 3);
     }
@@ -271,8 +287,9 @@ void render_editor(Canvas &canvas,
                124, 72, keys[index], false, 2);
     }
     button(canvas, 34, 590, 124, 72, "DELETE", false, 2);
-    button(canvas, 172, 590, 124, 72, "CANCEL", false, 2);
-    button(canvas, 310, 590, 136, 72, "OK", true, 2);
+    button(canvas, 172, 590, 124, 72, "BACK", false, 2);
+    button(canvas, 310, 590, 136, 72, "OK", true, 2,
+           TextWeight::Bold);
     footer_status(canvas, state);
 }
 

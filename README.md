@@ -12,7 +12,8 @@ Sticky Salah 是面向 Seeed Studio reTerminal Sticky 的原生穆斯林礼拜�
 - 热点网页只负责 Wi-Fi。Wi-Fi 页自动扫描附近网络，列表点击与手动输入可以同时使用。
 - 礼拜设置是设备上的原生竖屏触摸菜单，包含地点、机构、Asr 规则、七项微调和提示音。
 - 设备界面统一使用至少 2 倍点阵字号，当前选项、状态、日期和辅助提示都保持近距离可读。
-- 原生设置页持续保持可操作状态，直到用户主动保存、取消或进入 Wi-Fi 配网。
+- 设置页使用粗体标题与常规字重内容建立视觉层级；首次设置只提供保存并开始的完成入口。
+- 原生设置页持续保持可操作状态，直到用户主动完成设置或在日常设置中退出。
 - 地点支持设备联网自动估算和触摸屏手动经纬度两种入口；UTC 偏移可按 15 分钟或 1 小时调整。
 - 联网时仅校准系统时间与板载 RTC；网络位置估算为可选功能。礼拜时间的日常计算可离线完成。
 - 每次刷新后进入深度睡眠，由定时器、顶部按键或 IMU 姿态变化唤醒。
@@ -144,10 +145,10 @@ bash tools/run_host_tests.sh
 成功时会看到：
 
 ```text
-[host-test] PASS 18/18
+[host-test] PASS 19/19
 ```
 
-测试覆盖 HTTP 请求头容量、Wi-Fi 网页职责、Wi-Fi 列表和手动输入、设备最小字号策略、原生设置页持续停留策略、原生设置页触摸区域、经纬度本地计算、Hanafi Asr、七项微调、Qiyam 公式、跨午夜礼拜窗口、页面绘制保护、屏幕方向、深睡唤醒准备、DNS、Wi-Fi 扫描、地区建议以及固件不编译远程礼拜表管线的策略检查。
+测试覆盖 HTTP 请求头容量、Wi-Fi 网页职责、Wi-Fi 列表和手动输入、设备最小字号策略、粗体与常规字重、首次设置完成入口、原生设置页持续停留策略、原生设置页触摸区域、经纬度本地计算、Hanafi Asr、七项微调、Qiyam 公式、跨午夜礼拜窗口、页面绘制保护、屏幕方向、深睡唤醒准备、DNS、Wi-Fi 扫描、地区建议以及固件不编译远程礼拜表管线的策略检查。
 
 一句话总结：不接设备也能先验证核心数学、页面数据流和构建策略。
 
@@ -169,6 +170,7 @@ g++ -std=c++17 -Isrc/prayer -Isrc/storage -Isrc/ui tools/render_ui_preview.cpp s
 /tmp/sticky_salah_ui_preview landscape schedule /tmp/sticky_salah_landscape.pgm
 /tmp/sticky_salah_ui_preview portrait setup /tmp/sticky_salah_setup.pgm
 /tmp/sticky_salah_ui_preview portrait settings-main /tmp/sticky_salah_settings.pgm
+/tmp/sticky_salah_ui_preview portrait settings-main-first-time /tmp/sticky_salah_first_time.pgm
 /tmp/sticky_salah_ui_preview portrait settings-location /tmp/sticky_salah_location.pgm
 /tmp/sticky_salah_ui_preview portrait settings-calculation /tmp/sticky_salah_calculation.pgm
 /tmp/sticky_salah_ui_preview portrait settings-adjustments /tmp/sticky_salah_adjustments.pgm

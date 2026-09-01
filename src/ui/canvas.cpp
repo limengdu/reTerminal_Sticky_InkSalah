@@ -236,15 +236,22 @@ void Canvas::fill_circle(int center_x,
     }
 }
 
-void Canvas::draw_text(int x, int y, const char *text, uint8_t scale, GrayLevel color)
+void Canvas::draw_text(int x,
+                       int y,
+                       const char *text,
+                       uint8_t scale,
+                       GrayLevel color,
+                       TextWeight weight)
 {
     if (text == nullptr) {
         return;
     }
     scale = std::max<uint8_t>(scale, kMinimumTextScale);
 
-    // A set font bit becomes one scale-by-scale square on the canvas.
-    // 点阵字体中的每个有效点会放大成一个scale乘scale的方块。
+    // A bold glyph widens each active dot by one physical pixel.
+    // 粗体字形将每个有效点横向增加一个物理像素。
+    const int stroke_width = scale +
+                             (weight == TextWeight::Bold ? 1 : 0);
     int cursor_x = x;
     for (const char *character = text; *character != '\0'; ++character) {
         const FontGlyph &glyph = font_get_glyph(*character);
@@ -253,7 +260,7 @@ void Canvas::draw_text(int x, int y, const char *text, uint8_t scale, GrayLevel 
                 if ((glyph.columns[column] & (1U << row)) != 0U) {
                     fill_rect(cursor_x + column * scale,
                               y + row * scale,
-                              scale,
+                              stroke_width,
                               scale,
                               color);
                 }

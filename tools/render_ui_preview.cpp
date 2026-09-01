@@ -49,7 +49,7 @@ int main(int argc, char **argv)
 {
     if (argc != 4) {
         std::fprintf(stderr,
-                     "Usage: render_ui_preview <landscape|portrait> <schedule|setup|error|settings-main|settings-location|settings-calculation|settings-adjustments> <output.pgm>\n");
+                     "Usage: render_ui_preview <landscape|portrait> <schedule|setup|error|settings-main|settings-main-first-time|settings-location|settings-calculation|settings-adjustments> <output.pgm>\n");
         return 2;
     }
     const bool portrait = std::strcmp(argv[1], "portrait") == 0;
@@ -73,7 +73,10 @@ int main(int argc, char **argv)
         settings.configured = true;
         settings.location_confirmed = true;
         DeviceSettingsUiState state = {};
-        if (std::strcmp(argv[2], "settings-location") == 0) {
+        if (std::strcmp(argv[2], "settings-main-first-time") == 0) {
+            state.first_time = true;
+            settings.configured = false;
+        } else if (std::strcmp(argv[2], "settings-location") == 0) {
             state.page = DeviceSettingsPage::Location;
         } else if (std::strcmp(argv[2], "settings-calculation") == 0) {
             state.page = DeviceSettingsPage::Calculation;
