@@ -17,6 +17,8 @@ enum class CanvasRotation : uint8_t {
     Deg90CounterClockwise,
 };
 
+constexpr uint8_t kMinimumTextScale = 2U;
+
 class Canvas {
 public:
     // Wraps a caller-owned 2-bit grayscale buffer as an 800x480 drawing surface.
@@ -49,7 +51,8 @@ public:
                      GrayLevel color = GrayLevel::Black);
     void fill_circle(int center_x, int center_y, int radius,
                      GrayLevel color = GrayLevel::Black);
-    void draw_text(int x, int y, const char *text, uint8_t scale = 1,
+    void draw_text(int x, int y, const char *text,
+                   uint8_t scale = kMinimumTextScale,
                    GrayLevel color = GrayLevel::Black);
 
     // Converts a physical touch coordinate into the current logical page axes.

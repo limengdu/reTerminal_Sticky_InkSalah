@@ -66,6 +66,14 @@ echo "[host-test] large_object_storage_test"
 python3 test/large_object_storage_test.py
 passed_count=$((passed_count + 1))
 
+echo "[host-test] ui_text_scale_policy_test"
+python3 test/ui_text_scale_policy_test.py
+passed_count=$((passed_count + 1))
+
+echo "[host-test] device_settings_lifetime_policy_test"
+python3 test/device_settings_lifetime_policy_test.py
+passed_count=$((passed_count + 1))
+
 compile_and_run prayer_time_test \
     -Isrc/prayer \
     test/prayer_time_test.cpp \
@@ -138,4 +146,4 @@ compile_and_run location_catalog_test \
     test/location_catalog_test.cpp \
     src/location/location_catalog.cpp
 
-echo "[host-test] PASS ${passed_count}/16"
+echo "[host-test] PASS ${passed_count}/18"

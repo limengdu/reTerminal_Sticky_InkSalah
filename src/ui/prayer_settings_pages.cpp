@@ -36,6 +36,33 @@ void centered(Canvas &canvas,
                      y, text, scale, color);
 }
 
+void ellipsize(const char *text,
+               size_t maximum_characters,
+               char *output,
+               size_t capacity)
+{
+    if (output == nullptr || capacity == 0U) {
+        return;
+    }
+    output[0] = '\0';
+    if (text == nullptr) {
+        return;
+    }
+    const size_t length = std::strlen(text);
+    if (length <= maximum_characters) {
+        std::snprintf(output, capacity, "%s", text);
+        return;
+    }
+    const size_t kept = maximum_characters > 3U
+                            ? maximum_characters - 3U
+                            : 0U;
+    std::snprintf(output,
+                  capacity,
+                  "%.*s...",
+                  static_cast<int>(kept),
+                  text);
+}
+
 void draw_asset(Canvas &canvas, const IslamicBackgroundAsset &asset)
 {
     if (asset.data == nullptr || asset.width != canvas.width() ||
@@ -59,7 +86,7 @@ void page_base(Canvas &canvas, const char *title, const char *subtitle)
     draw_asset(canvas, islamic_setup_background_asset());
     canvas.fill_rect(22, 42, 436, 730, GrayLevel::White);
     centered(canvas, 240, 58, title, 3);
-    centered(canvas, 240, 88, subtitle, 1);
+    centered(canvas, 240, 88, subtitle, 2);
 }
 
 void button(Canvas &canvas,
@@ -91,7 +118,9 @@ void row(Canvas &canvas,
     canvas.draw_text(50, y + 14, title, 2,
                      selected ? GrayLevel::White : GrayLevel::Black);
     if (value != nullptr && value[0] != '\0') {
-        canvas.draw_text(50, y + 43, value, 1,
+        char fitted[32] = {};
+        ellipsize(value, 27U, fitted, sizeof(fitted));
+        canvas.draw_text(50, y + 43, fitted, 2,
                          selected ? GrayLevel::White : GrayLevel::Black);
     }
     canvas.draw_text(420, y + 28, ">", 2,
@@ -103,8 +132,10 @@ void footer_status(Canvas &canvas, const DeviceSettingsUiState &state)
     if (state.status[0] == '\0') {
         return;
     }
-    canvas.fill_rect(35, 750, 410, 18, GrayLevel::White);
-    centered(canvas, 240, 754, state.status, 1);
+    char fitted[36] = {};
+    ellipsize(state.status, 33U, fitted, sizeof(fitted));
+    canvas.fill_rect(35, 738, 410, 30, GrayLevel::White);
+    centered(canvas, 240, 746, fitted, 2);
 }
 
 void render_main(Canvas &canvas,
@@ -130,7 +161,7 @@ void render_main(Canvas &canvas,
     if (!state.first_time) {
         button(canvas, 34, 660, 412, 60, "CANCEL", false, 2);
     } else {
-        centered(canvas, 240, 682, "SAVE TO FINISH FIRST-TIME SETUP", 1);
+        centered(canvas, 240, 678, "SAVE TO FINISH FIRST-TIME SETUP", 2);
     }
     footer_status(canvas, state);
 }
@@ -143,8 +174,8 @@ void coordinate_row(Canvas &canvas,
     button(canvas, 34, y, 66, 88, "-", false, 3);
     button(canvas, 108, y, 264, 88, value, false, 2);
     button(canvas, 380, y, 66, 88, "+", false, 3);
-    canvas.fill_rect(125, y - 8, 230, 18, GrayLevel::White);
-    centered(canvas, 240, y - 5, name, 1);
+    canvas.fill_rect(105, y - 10, 270, 22, GrayLevel::White);
+    centered(canvas, 240, y - 6, name, 2);
 }
 
 void render_location(Canvas &canvas,
@@ -165,8 +196,8 @@ void render_location(Canvas &canvas,
                   total < 0 ? '-' : '+', std::abs(total) / 60,
                   std::abs(total) % 60);
     coordinate_row(canvas, 475, "TIME ZONE / 15 MIN", offset);
-    button(canvas, 34, 580, 198, 56, "- 1 HOUR", false, 1);
-    button(canvas, 248, 580, 198, 56, "+ 1 HOUR", false, 1);
+    button(canvas, 34, 580, 198, 56, "- 1 HOUR", false, 2);
+    button(canvas, 248, 580, 198, 56, "+ 1 HOUR", false, 2);
     button(canvas, 34, 670, 412, 58, "BACK", false, 2);
     footer_status(canvas, state);
 }
@@ -183,7 +214,7 @@ void render_calculation(Canvas &canvas,
            settings.asr_school == 0U, 2);
     button(canvas, 248, 320, 198, 100, "HANAFI",
            settings.asr_school == 1U, 2);
-    centered(canvas, 240, 448, "ASR ONLY; OTHER TIMES STAY THE SAME", 1);
+    centered(canvas, 240, 448, "ASR ONLY; OTHER TIMES STAY THE SAME", 2);
     button(canvas, 34, 670, 412, 58, "BACK", false, 2);
     footer_status(canvas, state);
 }
@@ -196,7 +227,7 @@ void render_method_list(Canvas &canvas,
     for (size_t index = 0U; index < 8U; ++index) {
         const int y = 112 + static_cast<int>(index) * 65;
         button(canvas, 34, y, 412, 56, kMethodNames[index],
-               settings.calculation_method == kMethodValues[index], 1);
+               settings.calculation_method == kMethodValues[index], 2);
     }
     button(canvas, 34, 670, 412, 58, "BACK", false, 2);
     footer_status(canvas, state);
@@ -214,7 +245,7 @@ void render_adjustments(Canvas &canvas,
                       static_cast<int>(settings.prayer_adjustments[index]));
         button(canvas, 34, y, 62, 58, "-", false, 3);
         canvas.draw_text(113, y + 10, kAdjustmentNames[index], 2);
-        canvas.draw_text(270, y + 18, value, 1);
+        canvas.draw_text(270, y + 14, value, 2);
         button(canvas, 384, y, 62, 58, "+", false, 3);
     }
     button(canvas, 34, 670, 412, 58, "BACK", false, 2);
@@ -239,8 +270,8 @@ void render_editor(Canvas &canvas,
         button(canvas, 34 + column * 138, 220 + row_index * 88,
                124, 72, keys[index], false, 2);
     }
-    button(canvas, 34, 590, 124, 72, "DELETE", false, 1);
-    button(canvas, 172, 590, 124, 72, "CANCEL", false, 1);
+    button(canvas, 34, 590, 124, 72, "DELETE", false, 2);
+    button(canvas, 172, 590, 124, 72, "CANCEL", false, 2);
     button(canvas, 310, 590, 136, 72, "OK", true, 2);
     footer_status(canvas, state);
 }

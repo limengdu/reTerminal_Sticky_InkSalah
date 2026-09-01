@@ -46,6 +46,33 @@ void draw_centered(Canvas &canvas,
                      color);
 }
 
+void ellipsize(const char *text,
+               size_t maximum_characters,
+               char *output,
+               size_t capacity)
+{
+    if (output == nullptr || capacity == 0U) {
+        return;
+    }
+    output[0] = '\0';
+    if (text == nullptr) {
+        return;
+    }
+    const size_t length = std::strlen(text);
+    if (length <= maximum_characters) {
+        std::snprintf(output, capacity, "%s", text);
+        return;
+    }
+    const size_t kept = maximum_characters > 3U
+                            ? maximum_characters - 3U
+                            : 0U;
+    std::snprintf(output,
+                  capacity,
+                  "%.*s...",
+                  static_cast<int>(kept),
+                  text);
+}
+
 void format_time(uint16_t minutes, char output[6])
 {
     const uint8_t hour = static_cast<uint8_t>((minutes / 60U) % 24U);
@@ -130,13 +157,14 @@ void draw_portrait_header(Canvas &canvas, const PrayerPageModel &model)
 {
     // Keep the battery overlay and the two date lines on a clean white band.
     // 为电量图标和两行日期保留干净的白色顶栏。
-    canvas.fill_rect(0, 0, static_cast<int>(canvas.width()), 78,
+    canvas.fill_rect(0, 0, static_cast<int>(canvas.width()), 112,
                      GrayLevel::White);
-    const size_t city_length = std::strlen(model.settings->city);
+    char city[20] = {};
+    ellipsize(model.settings->city, 15U, city, sizeof(city));
     canvas.draw_text(18,
                      12,
-                     model.settings->city,
-                     city_length <= 15U ? 2U : 1U,
+                     city,
+                     2U,
                      GrayLevel::Black);
 
     char gregorian[32] = {};
@@ -147,7 +175,7 @@ void draw_portrait_header(Canvas &canvas, const PrayerPageModel &model)
                   static_cast<unsigned>(model.today->date.day),
                   static_cast<unsigned>(model.today->date.month),
                   static_cast<unsigned>(model.today->date.year));
-    draw_centered(canvas, 240, 36, gregorian, 1, GrayLevel::Black);
+    draw_centered(canvas, 240, 40, gregorian, 2, GrayLevel::Black);
 
     char hijri[48] = {};
     std::snprintf(hijri,
@@ -156,10 +184,10 @@ void draw_portrait_header(Canvas &canvas, const PrayerPageModel &model)
                   static_cast<unsigned>(model.today->hijri_day),
                   prayer_hijri_month_name(model.today->hijri_month),
                   static_cast<unsigned>(model.today->hijri_year));
-    draw_centered(canvas, 240, 49, hijri, 1, GrayLevel::Black);
+    draw_centered(canvas, 240, 62, hijri, 2, GrayLevel::Black);
     char source[40] = {};
     format_source(*model.settings, source, sizeof(source));
-    draw_centered(canvas, 240, 64, source, 1, GrayLevel::Black);
+    draw_centered(canvas, 240, 84, source, 2, GrayLevel::Black);
 }
 
 void draw_timeline_marker(Canvas &canvas, int x, int y, bool selected)
@@ -175,13 +203,14 @@ void draw_timeline_marker(Canvas &canvas, int x, int y, bool selected)
 
 void draw_landscape_header(Canvas &canvas, const PrayerPageModel &model)
 {
-    canvas.fill_rect(0, 0, static_cast<int>(canvas.width()), 54,
+    canvas.fill_rect(0, 0, static_cast<int>(canvas.width()), 60,
                      GrayLevel::White);
-    const size_t city_length = std::strlen(model.settings->city);
+    char city[24] = {};
+    ellipsize(model.settings->city, 18U, city, sizeof(city));
     canvas.draw_text(18,
                      12,
-                     model.settings->city,
-                     city_length <= 18U ? 2U : 1U,
+                     city,
+                     2U,
                      GrayLevel::Black);
 
     char gregorian[32] = {};
@@ -201,14 +230,14 @@ void draw_landscape_header(Canvas &canvas, const PrayerPageModel &model)
                   static_cast<unsigned>(model.today->hijri_day),
                   prayer_hijri_month_name(model.today->hijri_month),
                   static_cast<unsigned>(model.today->hijri_year));
-    draw_centered(canvas, 410, 37, hijri, 1, GrayLevel::Black);
+    draw_centered(canvas, 410, 37, hijri, 2, GrayLevel::Black);
     char source[40] = {};
     format_source(*model.settings, source, sizeof(source));
-    canvas.draw_text(18, 37, source, 1, GrayLevel::Black);
+    canvas.draw_text(18, 37, source, 2, GrayLevel::Black);
     canvas.draw_text(622,
                      37,
                      model.online ? "SYNCED" : "LOCAL",
-                     1,
+                     2,
                      GrayLevel::Black);
 }
 
@@ -269,7 +298,7 @@ void draw_landscape_schedule(Canvas &canvas, const PrayerPageModel &model)
                   "NEXT %s %s",
                   prayer_id_name(model.next.prayer),
                   next_time);
-    draw_centered(canvas, 200, 397, next_line, 1, GrayLevel::Black);
+    draw_centered(canvas, 200, 390, next_line, 2, GrayLevel::Black);
 
     canvas.draw_text(456, 92, "TODAY'S TIMES", 2, GrayLevel::Black);
     constexpr int kTimelineX = 454;
@@ -437,7 +466,7 @@ void prayer_page_render_setup(Canvas &canvas,
                       static_cast<int>(canvas.width()) / 2,
                       386,
                       ap_ssid,
-                      std::strlen(ap_ssid) <= 31U ? 2U : 1U,
+                      2U,
                       GrayLevel::Black);
         canvas.draw_line(100, 426, 380, 426, GrayLevel::Black);
 
@@ -469,9 +498,9 @@ void prayer_page_render_setup(Canvas &canvas,
                       GrayLevel::Black);
         draw_centered(canvas,
                       static_cast<int>(canvas.width()) / 2,
-                      628,
-                      "THE PAGE SHOULD OPEN AUTOMATICALLY",
-                      1,
+                      620,
+                      "PAGE OPENS AUTOMATICALLY",
+                      2,
                       GrayLevel::Black);
         return;
     }
@@ -526,7 +555,7 @@ void prayer_page_render_error(Canvas &canvas,
                       static_cast<int>(canvas.width()) / 2,
                       324,
                       message,
-                      1,
+                      2,
                       GrayLevel::DarkGray);
         draw_centered(canvas,
                       static_cast<int>(canvas.width()) / 2,

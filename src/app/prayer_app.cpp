@@ -159,10 +159,8 @@ bool settings_requested()
         show_setup(canvas, &settings);
     }
     if (result == DeviceSettingsResult::Failed) {
-        prayer_page_render_error(canvas,
-                                 "SETTINGS UNAVAILABLE",
-                                 "RESTART THE DEVICE");
-        sticky_display_refresh_monochrome();
+        // The settings flow already presents the specific hardware error.
+        // 设置流程已经显示具体的硬件错误，此处直接等待自动重试。
         enter_deep_sleep(kErrorRetryUs);
     }
     vTaskDelay(pdMS_TO_TICKS(250));

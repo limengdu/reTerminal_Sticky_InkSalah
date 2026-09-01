@@ -238,9 +238,10 @@ void Canvas::fill_circle(int center_x,
 
 void Canvas::draw_text(int x, int y, const char *text, uint8_t scale, GrayLevel color)
 {
-    if (text == nullptr || scale == 0) {
+    if (text == nullptr) {
         return;
     }
+    scale = std::max<uint8_t>(scale, kMinimumTextScale);
 
     // A set font bit becomes one scale-by-scale square on the canvas.
     // 点阵字体中的每个有效点会放大成一个scale乘scale的方块。

@@ -93,7 +93,7 @@ int main()
     const size_t landscape_dark_pixels = dark_pixels(canvas);
     assert(landscape_dark_pixels > 25000U);
     assert(landscape_dark_pixels < 55000U);
-    assert(canvas.pixel_at(7, 55) == GrayLevel::Black);
+    assert(dark_pixels_in_rect(canvas, 0, 60, 160, 120) > 400U);
     assert(dark_pixels_below(canvas, 400) > 1000U);
 
     canvas.set_rotation(CanvasRotation::Deg90Clockwise);

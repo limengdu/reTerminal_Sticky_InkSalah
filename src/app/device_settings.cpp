@@ -27,7 +27,6 @@ namespace {
 constexpr char kTag[] = "device_settings";
 constexpr uint32_t kConnectTimeoutMs = 16000U;
 constexpr uint32_t kTimeSyncTimeoutMs = 12000U;
-constexpr TickType_t kIdleTimeout = pdMS_TO_TICKS(5U * 60U * 1000U);
 
 void set_status(DeviceSettingsUiState &state, const char *message)
 {
@@ -231,15 +230,15 @@ DeviceSettingsResult device_settings_run(Canvas &canvas,
     sticky_touch_clear_press();
     state.page = DeviceSettingsPage::Main;
     refresh(canvas, settings, state, true);
-    TickType_t last_activity = xTaskGetTickCount();
 
-    while (xTaskGetTickCount() - last_activity < kIdleTimeout) {
+    // Keeps the native menu open until the user chooses a terminal action.
+    // 原生设置菜单保持打开，直到用户主动选择保存、取消或配网。
+    while (true) {
         StickyTouchPress press = {};
         if (!sticky_touch_take_press(press)) {
             vTaskDelay(pdMS_TO_TICKS(20));
             continue;
         }
-        last_activity = xTaskGetTickCount();
         int x = 0;
         int y = 0;
         canvas.physical_to_logical(press.x, press.y, x, y);
@@ -385,9 +384,4 @@ DeviceSettingsResult device_settings_run(Canvas &canvas,
         }
         refresh(canvas, settings, state);
     }
-
-    sticky_touch_stop();
-    settings = original;
-    return first_time ? DeviceSettingsResult::Failed
-                      : DeviceSettingsResult::Cancelled;
 }
