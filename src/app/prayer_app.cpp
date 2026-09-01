@@ -9,6 +9,7 @@
 #include "canvas.h"
 #include "display_orientation.h"
 #include "esp_attr.h"
+#include "esp_heap_caps.h"
 #include "esp_sleep.h"
 #include "esp_system.h"
 #include "freertos/FreeRTOS.h"
@@ -174,11 +175,24 @@ bool refresh_network_data(const SalahSettings &settings,
     }
     const PrayerDate local_date = prayer_date(now);
     if (schedule_missing || needs_schedule_refresh(schedule, local_date)) {
-        PrayerSchedule downloaded = {};
-        const esp_err_t fetch_result = aladhan_fetch_two_month_schedule(
-            settings, local_date, downloaded);
-        if (fetch_result == ESP_OK && prayer_cache_save(downloaded) == ESP_OK) {
-            schedule = downloaded;
+        // Keeps the transactional two-month download outside the main task stack.
+        // 将两个月的事务性下载缓冲放到PSRAM，避免占用主任务栈。
+        auto *downloaded = static_cast<PrayerSchedule *>(heap_caps_calloc(
+            1U,
+            sizeof(PrayerSchedule),
+            MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
+        if (downloaded == nullptr) {
+            STICKY_LOGE(kTag,
+                        "schedule=allocate memory=psram bytes=%u result=failed",
+                        static_cast<unsigned>(sizeof(PrayerSchedule)));
+        } else {
+            const esp_err_t fetch_result = aladhan_fetch_two_month_schedule(
+                settings, local_date, *downloaded);
+            if (fetch_result == ESP_OK &&
+                prayer_cache_save(*downloaded) == ESP_OK) {
+                schedule = *downloaded;
+            }
+            heap_caps_free(downloaded);
         }
     }
     wifi_service_stop();

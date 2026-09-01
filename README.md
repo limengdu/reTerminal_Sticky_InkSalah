@@ -183,13 +183,14 @@ bash tools/run_host_tests.sh
 成功时会看到：
 
 ```text
-[host-test] PASS 12/12
+[host-test] PASS 13/13
 ```
 
-十二项检查分别覆盖：
+十三项检查分别覆盖：
 
 - Debug、Release 和默认配置的 HTTP 请求头容量至少为 4096 字节。
 - Wi-Fi 扫描列表、可编辑名称输入框、点击填入和页面启动时自动扫描。
+- 双月日程与 NVS 缓存传输缓冲固定使用堆内存，避免重新回到主任务栈。
 - 时间解析、跨天寻找下一场礼拜、闰年和动态刷新间隔。
 - 日程添加、排序、重复日期与容量边界。
 - 首次设置表单、URL 解码、UTC 范围、必填项和超长输入。
@@ -240,6 +241,7 @@ python3 tools/generate_islamic_background_asset.py assets/ui/islamic_landscape_b
 - HTTPS 请求只向 `api.aladhan.com` 发送城市、国家、计算机构和 Asr 学派。
 - 配网提交后先连接用户选择的 Wi-Fi，并调用 AlAdhan 验证五次礼拜时间；HTTPS 暂时性故障最多尝试三次，验证失败时保留配网页和原有设置。
 - 固件缓存当前月与下一个月，最多保存 64 天。
+- 双月日程下载缓冲和 NVS 缓存传输缓冲使用 PSRAM，主任务栈只保留当前运行所需的数据。
 - 时区采用设置页保存的固定 UTC 偏移；季节性时钟变化通过再次设置完成更新。
 - 当前版本以 AlAdhan 返回的当日有序时间为准，适合每天五场时间都落在本地同一自然日内的地区。
 
