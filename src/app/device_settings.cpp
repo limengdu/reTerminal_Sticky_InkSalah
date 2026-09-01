@@ -201,8 +201,15 @@ void mark_manual_location(SalahSettings &settings)
     settings.location_confirmed = true;
 }
 
-StickyVerticalSwipe classify_swipe(Canvas &canvas,
-                                   const StickyTouchInteraction &interaction)
+enum class DeviceSettingsCloseGesture : uint8_t {
+    None,
+    DownFromTop,
+    RightFromLeft,
+};
+
+DeviceSettingsCloseGesture classify_close_gesture(
+    Canvas &canvas,
+    const StickyTouchInteraction &interaction)
 {
     int logical_start_x = 0;
     int logical_start_y = 0;
@@ -216,11 +223,21 @@ StickyVerticalSwipe classify_swipe(Canvas &canvas,
                                interaction.end_y,
                                logical_end_x,
                                logical_end_y);
-    return sticky_touch_classify_vertical_swipe(
-        {logical_start_x, logical_start_y,
-         logical_end_x, logical_end_y,
-         interaction.ended_at_ms - interaction.started_at_ms},
-        canvas.width(), canvas.height());
+    const StickyLogicalTouchPath path = {
+        logical_start_x, logical_start_y,
+        logical_end_x, logical_end_y,
+        interaction.ended_at_ms - interaction.started_at_ms};
+    if (sticky_touch_classify_vertical_swipe(
+            path, canvas.width(), canvas.height()) ==
+        StickyVerticalSwipe::DownFromTop) {
+        return DeviceSettingsCloseGesture::DownFromTop;
+    }
+    if (sticky_touch_classify_horizontal_swipe(
+            path, canvas.width(), canvas.height()) ==
+        StickyHorizontalSwipe::RightFromLeft) {
+        return DeviceSettingsCloseGesture::RightFromLeft;
+    }
+    return DeviceSettingsCloseGesture::None;
 }
 
 }  // namespace
@@ -259,12 +276,19 @@ DeviceSettingsResult device_settings_run(Canvas &canvas,
     // 原生设置菜单保持打开，直到用户主动选择保存、取消或配网。
     while (true) {
         StickyTouchInteraction interaction = {};
-        if (sticky_touch_take_interaction(interaction) &&
-            classify_swipe(canvas, interaction) ==
-                StickyVerticalSwipe::DownFromTop) {
+        if (sticky_touch_take_interaction(interaction)) {
+            const DeviceSettingsCloseGesture close_gesture =
+                classify_close_gesture(canvas, interaction);
+            if (close_gesture == DeviceSettingsCloseGesture::None) {
+                continue;
+            }
             if (validate_and_save(settings, state)) {
                 STICKY_LOGI(kTag,
-                            "settings=swipe direction=down_from_top result=save_and_close");
+                            "settings=swipe direction=%s result=save_and_close",
+                            close_gesture ==
+                                    DeviceSettingsCloseGesture::DownFromTop
+                                ? "down_from_top"
+                                : "right_from_left");
                 return DeviceSettingsResult::Saved;
             }
             refresh(canvas, settings, state);

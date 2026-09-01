@@ -42,6 +42,10 @@ def main() -> None:
         "Native settings must close with a downward edge swipe.",
     )
     require(
+        "StickyHorizontalSwipe::RightFromLeft" in settings_source,
+        "Native settings must close with a swipe from the left edge toward center.",
+    )
+    require(
         "restart_after_settings" not in app_source,
         "Closing native settings must return to the schedule without restarting.",
     )

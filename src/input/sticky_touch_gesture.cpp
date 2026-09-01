@@ -33,3 +33,33 @@ StickyVerticalSwipe sticky_touch_classify_vertical_swipe(
     }
     return StickyVerticalSwipe::None;
 }
+
+StickyHorizontalSwipe sticky_touch_classify_horizontal_swipe(
+    const StickyLogicalTouchPath &path,
+    int page_width,
+    int page_height)
+{
+    if (page_width <= 0 || page_height <= 0 ||
+        path.duration_ms > 1800U) {
+        return StickyHorizontalSwipe::None;
+    }
+
+    const int edge_depth = std::max(72, page_width / 4);
+    const int minimum_travel = std::max(90, page_width / 5);
+    const int center_threshold = page_width * 2 / 5;
+    const int delta_x = path.end_x - path.start_x;
+    const int delta_y = path.end_y - path.start_y;
+    const int horizontal_travel = std::abs(delta_x);
+    const int vertical_travel = std::abs(delta_y);
+    if (horizontal_travel < minimum_travel ||
+        horizontal_travel < vertical_travel * 2) {
+        return StickyHorizontalSwipe::None;
+    }
+
+    if (path.start_x <= edge_depth &&
+        path.end_x >= center_threshold &&
+        delta_x > 0) {
+        return StickyHorizontalSwipe::RightFromLeft;
+    }
+    return StickyHorizontalSwipe::None;
+}
