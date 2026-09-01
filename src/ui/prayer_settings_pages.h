@@ -44,8 +44,8 @@ enum class DeviceSettingsActionType : uint8_t {
     EditorDigit,
     EditorSign,
     EditorDot,
+    EditorClear,
     EditorBackspace,
-    EditorCancel,
     EditorConfirm,
 };
 
@@ -66,6 +66,10 @@ struct DeviceSettingsUiState {
 DeviceSettingsAction prayer_settings_action_at(DeviceSettingsPage page,
                                                 int x,
                                                 int y);
+
+// Returns the parent page for one in-settings back gesture.
+// 返回设置内一次返回操作对应的上一级页面。
+DeviceSettingsPage prayer_settings_parent_page(DeviceSettingsPage page);
 
 // Draws one complete native settings page into the caller-owned canvas.
 // 将一张完整的设备原生设置页绘制到调用方画布。

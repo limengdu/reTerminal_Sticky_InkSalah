@@ -74,6 +74,10 @@ echo "[host-test] device_settings_lifetime_policy_test"
 python3 test/device_settings_lifetime_policy_test.py
 passed_count=$((passed_count + 1))
 
+echo "[host-test] location_detection_policy_test"
+python3 test/location_detection_policy_test.py
+passed_count=$((passed_count + 1))
+
 echo "[host-test] settings_visual_hierarchy_policy_test"
 python3 test/settings_visual_hierarchy_policy_test.py
 passed_count=$((passed_count + 1))
@@ -163,4 +167,4 @@ compile_and_run location_catalog_test \
     test/location_catalog_test.cpp \
     src/location/location_catalog.cpp
 
-echo "[host-test] PASS ${passed_count}/22"
+echo "[host-test] PASS ${passed_count}/23"

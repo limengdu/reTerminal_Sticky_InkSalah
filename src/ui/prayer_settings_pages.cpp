@@ -196,8 +196,11 @@ void render_location(Canvas &canvas,
                      const SalahSettings &settings,
                      const DeviceSettingsUiState &state)
 {
-    page_base(canvas, "LOCATION", "USED FOR LOCAL SUN CALCULATION");
-    button(canvas, 34, 115, 412, 72, "DETECT LOCATION", true, 2);
+    page_base(canvas, "LOCATION", "NETWORK LOCATION OR COORDINATES");
+    char location[64] = {};
+    std::snprintf(location, sizeof(location), "%.28s, %.28s",
+                  settings.city, settings.country);
+    row(canvas, 115, "AUTO-DETECT FROM WI-FI", location);
     char value[24] = {};
     std::snprintf(value, sizeof(value), "%.4f", settings.latitude);
     coordinate_row(canvas, 225, "LATITUDE", value);
@@ -359,11 +362,29 @@ DeviceSettingsAction prayer_settings_action_at(DeviceSettingsPage page,
                         index == 10 ? 0 : index + 1};
             }
         }
-        if (inside(x, y, 34, 590, 158, 662)) return {DeviceSettingsActionType::EditorBackspace};
-        if (inside(x, y, 172, 590, 296, 662)) return {DeviceSettingsActionType::EditorCancel};
+        if (inside(x, y, 34, 590, 158, 662)) return {DeviceSettingsActionType::EditorClear};
+        if (inside(x, y, 172, 590, 296, 662)) return {DeviceSettingsActionType::EditorBackspace};
         if (inside(x, y, 310, 590, 446, 662)) return {DeviceSettingsActionType::EditorConfirm};
     }
     return {};
+}
+
+DeviceSettingsPage prayer_settings_parent_page(DeviceSettingsPage page)
+{
+    switch (page) {
+    case DeviceSettingsPage::MethodList:
+        return DeviceSettingsPage::Calculation;
+    case DeviceSettingsPage::LatitudeEditor:
+    case DeviceSettingsPage::LongitudeEditor:
+        return DeviceSettingsPage::Location;
+    case DeviceSettingsPage::Location:
+    case DeviceSettingsPage::Calculation:
+    case DeviceSettingsPage::Adjustments:
+        return DeviceSettingsPage::Main;
+    case DeviceSettingsPage::Main:
+    default:
+        return DeviceSettingsPage::Main;
+    }
 }
 
 void prayer_settings_render(Canvas &canvas,

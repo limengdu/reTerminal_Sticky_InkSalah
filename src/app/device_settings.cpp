@@ -59,20 +59,29 @@ bool detect_location(SalahSettings &settings,
                      DeviceSettingsUiState &state,
                      Canvas &canvas)
 {
+    if (!settings_wifi_valid(settings)) {
+        set_status(state, "SET UP WI-FI BEFORE AUTO-DETECT");
+        return false;
+    }
+    const bool connection_was_active = wifi_service_is_connected();
     prayer_settings_render_loading(canvas, "DETECTING LOCATION",
-                                   "USING YOUR WI-FI CONNECTION");
+                                   "USING SAVED WI-FI");
     sticky_display_prepare_app_transition_refresh();
     sticky_display_refresh_monochrome();
 
     if (wifi_service_connect(settings, kConnectTimeoutMs) != ESP_OK) {
-        wifi_service_stop();
-        set_status(state, "WI-FI CONNECTION FAILED");
+        if (!connection_was_active) {
+            wifi_service_stop();
+        }
+        set_status(state, "SAVED WI-FI IS UNAVAILABLE");
         return false;
     }
     NetworkLocationEstimate estimate = {};
     const esp_err_t location_result = network_location_estimate(estimate);
     if (location_result != ESP_OK || !estimate.valid) {
-        wifi_service_stop();
+        if (!connection_was_active) {
+            wifi_service_stop();
+        }
         set_status(state, "LOCATION LOOKUP FAILED; ENTER IT MANUALLY");
         return false;
     }
@@ -92,7 +101,9 @@ bool detect_location(SalahSettings &settings,
     StickyRtcDateTime local_time = {};
     const esp_err_t time_result = time_sync_from_network(
         settings.utc_offset_minutes, local_time, kTimeSyncTimeoutMs);
-    wifi_service_stop();
+    if (!connection_was_active) {
+        wifi_service_stop();
+    }
     set_status(state, time_result == ESP_OK
                           ? "LOCATION AND TIME UPDATED"
                           : "LOCATION UPDATED; TIME SYNC WILL RETRY");
@@ -201,13 +212,13 @@ void mark_manual_location(SalahSettings &settings)
     settings.location_confirmed = true;
 }
 
-enum class DeviceSettingsCloseGesture : uint8_t {
+enum class DeviceSettingsGesture : uint8_t {
     None,
-    DownFromTop,
-    RightFromLeft,
+    SaveAndClose,
+    Back,
 };
 
-DeviceSettingsCloseGesture classify_close_gesture(
+DeviceSettingsGesture classify_settings_gesture(
     Canvas &canvas,
     const StickyTouchInteraction &interaction)
 {
@@ -230,14 +241,14 @@ DeviceSettingsCloseGesture classify_close_gesture(
     if (sticky_touch_classify_vertical_swipe(
             path, canvas.width(), canvas.height()) ==
         StickyVerticalSwipe::DownFromTop) {
-        return DeviceSettingsCloseGesture::DownFromTop;
+        return DeviceSettingsGesture::SaveAndClose;
     }
     if (sticky_touch_classify_horizontal_swipe(
             path, canvas.width(), canvas.height()) ==
         StickyHorizontalSwipe::RightFromLeft) {
-        return DeviceSettingsCloseGesture::RightFromLeft;
+        return DeviceSettingsGesture::Back;
     }
-    return DeviceSettingsCloseGesture::None;
+    return DeviceSettingsGesture::None;
 }
 
 }  // namespace
@@ -277,18 +288,31 @@ DeviceSettingsResult device_settings_run(Canvas &canvas,
     while (true) {
         StickyTouchInteraction interaction = {};
         if (sticky_touch_take_interaction(interaction)) {
-            const DeviceSettingsCloseGesture close_gesture =
-                classify_close_gesture(canvas, interaction);
-            if (close_gesture == DeviceSettingsCloseGesture::None) {
+            const DeviceSettingsGesture gesture =
+                classify_settings_gesture(canvas, interaction);
+            if (gesture == DeviceSettingsGesture::None) {
+                continue;
+            }
+            if (gesture == DeviceSettingsGesture::Back) {
+                const DeviceSettingsPage parent_page =
+                    prayer_settings_parent_page(state.page);
+                if (parent_page == state.page) {
+                    set_status(state, "USE SAVE OR DISCARD TO EXIT");
+                    STICKY_LOGI(kTag,
+                                "settings=swipe direction=right_from_left page=main result=stay");
+                } else {
+                    state.page = parent_page;
+                    state.editor_value[0] = '\0';
+                    set_status(state, "");
+                    STICKY_LOGI(kTag,
+                                "settings=swipe direction=right_from_left result=back");
+                }
+                refresh(canvas, settings, state);
                 continue;
             }
             if (validate_and_save(settings, state)) {
                 STICKY_LOGI(kTag,
-                            "settings=swipe direction=%s result=save_and_close",
-                            close_gesture ==
-                                    DeviceSettingsCloseGesture::DownFromTop
-                                ? "down_from_top"
-                                : "right_from_left");
+                            "settings=swipe direction=down_from_top result=save_and_close");
                 return DeviceSettingsResult::Saved;
             }
             refresh(canvas, settings, state);
@@ -337,11 +361,8 @@ DeviceSettingsResult device_settings_run(Canvas &canvas,
             }
             break;
         case DeviceSettingsActionType::Back:
-            if (state.page == DeviceSettingsPage::MethodList) {
-                state.page = DeviceSettingsPage::Calculation;
-            } else {
-                state.page = DeviceSettingsPage::Main;
-            }
+            state.page = prayer_settings_parent_page(state.page);
+            state.editor_value[0] = '\0';
             break;
         case DeviceSettingsActionType::DetectLocation:
             detect_location(settings, state, canvas);
@@ -424,15 +445,14 @@ DeviceSettingsResult device_settings_run(Canvas &canvas,
                 append_editor(state, '.');
             }
             break;
+        case DeviceSettingsActionType::EditorClear:
+            state.editor_value[0] = '\0';
+            break;
         case DeviceSettingsActionType::EditorBackspace: {
             const size_t length = std::strlen(state.editor_value);
             if (length > 0U) state.editor_value[length - 1U] = '\0';
             break;
         }
-        case DeviceSettingsActionType::EditorCancel:
-            state.page = DeviceSettingsPage::Location;
-            state.editor_value[0] = '\0';
-            break;
         case DeviceSettingsActionType::EditorConfirm:
             confirm_editor(settings, state);
             break;

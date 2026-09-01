@@ -25,6 +25,16 @@ int main()
     assert(prayer_settings_action_at(DeviceSettingsPage::Main, 240, 150).type == DeviceSettingsActionType::OpenLocation);
     assert(prayer_settings_action_at(DeviceSettingsPage::Main, 240, 490).type == DeviceSettingsActionType::OpenWifi);
     assert(prayer_settings_action_at(DeviceSettingsPage::Location, 240, 260).type == DeviceSettingsActionType::EditLatitude);
+    assert(prayer_settings_action_at(DeviceSettingsPage::LatitudeEditor, 90, 620).type == DeviceSettingsActionType::EditorClear);
+    assert(prayer_settings_action_at(DeviceSettingsPage::LatitudeEditor, 220, 620).type == DeviceSettingsActionType::EditorBackspace);
+    assert(prayer_settings_action_at(DeviceSettingsPage::LatitudeEditor, 370, 620).type == DeviceSettingsActionType::EditorConfirm);
+    assert(prayer_settings_parent_page(DeviceSettingsPage::Main) == DeviceSettingsPage::Main);
+    assert(prayer_settings_parent_page(DeviceSettingsPage::Location) == DeviceSettingsPage::Main);
+    assert(prayer_settings_parent_page(DeviceSettingsPage::Calculation) == DeviceSettingsPage::Main);
+    assert(prayer_settings_parent_page(DeviceSettingsPage::MethodList) == DeviceSettingsPage::Calculation);
+    assert(prayer_settings_parent_page(DeviceSettingsPage::Adjustments) == DeviceSettingsPage::Main);
+    assert(prayer_settings_parent_page(DeviceSettingsPage::LatitudeEditor) == DeviceSettingsPage::Location);
+    assert(prayer_settings_parent_page(DeviceSettingsPage::LongitudeEditor) == DeviceSettingsPage::Location);
     assert(prayer_settings_action_at(DeviceSettingsPage::Calculation, 100, 360).type == DeviceSettingsActionType::SelectStandard);
     const DeviceSettingsAction method = prayer_settings_action_at(DeviceSettingsPage::MethodList, 240, 255);
     assert(method.type == DeviceSettingsActionType::SelectMethod && method.value == 3);

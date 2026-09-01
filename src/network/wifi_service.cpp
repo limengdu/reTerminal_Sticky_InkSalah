@@ -168,8 +168,12 @@ esp_err_t wifi_service_init()
 esp_err_t wifi_service_connect(const SalahSettings &settings,
                                uint32_t timeout_ms)
 {
-    if (!settings_store_valid(settings)) {
+    if (!settings_wifi_valid(settings)) {
         return ESP_ERR_INVALID_ARG;
+    }
+    if (wifi_service_is_connected()) {
+        STICKY_LOGI(kTag, "wifi=connect state=reused result=ok");
+        return ESP_OK;
     }
     ESP_RETURN_ON_ERROR(wifi_service_init(), kTag, "initialize wifi");
     s_connect_enabled.store(false, std::memory_order_release);

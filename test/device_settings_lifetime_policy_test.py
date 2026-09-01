@@ -43,7 +43,17 @@ def main() -> None:
     )
     require(
         "StickyHorizontalSwipe::RightFromLeft" in settings_source,
-        "Native settings must close with a swipe from the left edge toward center.",
+        "Native settings must recognize a back swipe from the left edge toward center.",
+    )
+    require(
+        '"settings=swipe direction=right_from_left result=back"'
+        in settings_source,
+        "A left-edge swipe on a child page must return to its parent.",
+    )
+    require(
+        '"settings=swipe direction=right_from_left page=main result=stay"'
+        in settings_source,
+        "A left-edge swipe on the settings home page must preserve the draft.",
     )
     require(
         "restart_after_settings" not in app_source,
