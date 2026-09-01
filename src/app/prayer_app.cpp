@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include "app_log.h"
+#include "board_charger.h"
 #include "board_power.h"
 #include "canvas.h"
 #include "device_settings.h"
@@ -14,6 +15,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "prayer_calculator.h"
+#include "prayer_input_policy.h"
 #include "prayer_schedule.h"
 #include "prayer_pages.h"
 #include "provisioning_portal.h"
@@ -33,8 +35,8 @@ constexpr char kTag[] = "prayer_app";
 constexpr uint32_t kNetworkTimeoutMs = 16000U;
 constexpr uint32_t kTimeSyncTimeoutMs = 12000U;
 constexpr TickType_t kOrientationSettle = pdMS_TO_TICKS(1300);
-constexpr TickType_t kInputWindow = pdMS_TO_TICKS(1200);
 constexpr uint64_t kErrorRetryUs = 5ULL * 60ULL * 1000000ULL;
+constexpr uint32_t kPoweredErrorRefreshMs = 60000U;
 
 RTC_DATA_ATTR uint32_t s_last_time_sync_date = 0U;
 RTC_DATA_ATTR uint8_t s_last_rotation =
@@ -88,13 +90,10 @@ CanvasRotation detect_rotation()
                     esp_err_to_name(imu_result));
     }
 
-    uint8_t touch_wakeup_level = 1U;
-    const esp_err_t touch_result =
-        sticky_touch_prepare_gesture_wakeup(touch_wakeup_level);
-    const bool touch_wakeup_ready = touch_result == ESP_OK;
-    if (!touch_wakeup_ready) {
+    const esp_err_t touch_result = sticky_touch_stop();
+    if (touch_result != ESP_OK) {
         STICKY_LOGW(kTag,
-                    "sleep=touch_wakeup state=disabled result=%s",
+                    "sleep=touch state=stop_failed result=%s",
                     esp_err_to_name(touch_result));
     }
 
@@ -106,8 +105,8 @@ CanvasRotation detect_rotation()
     }
     board_power_enter_deep_sleep(timer_wakeup_us,
                                  orientation_wakeup_ready,
-                                 touch_wakeup_ready,
-                                 touch_wakeup_level);
+                                 false,
+                                 0U);
 }
 
 void show_setup(Canvas &canvas, const SalahSettings *existing_settings)
@@ -190,21 +189,65 @@ bool wake_gesture_requests_settings(Canvas &canvas)
     return requested;
 }
 
-bool settings_requested_by_swipe(Canvas &canvas)
+enum class PrayerInputResult : uint8_t {
+    SleepRequested,
+    SettingsRequested,
+    RefreshRequested,
+};
+
+PrayerInputResult wait_for_prayer_input(Canvas &canvas,
+                                        uint32_t refresh_interval_ms,
+                                        uint32_t &last_user_activity_ms)
 {
     const esp_err_t touch_result = sticky_touch_init();
     if (touch_result != ESP_OK) {
         STICKY_LOGW(kTag,
                     "settings=touch_input result=%s",
                     esp_err_to_name(touch_result));
-        return false;
+        return PrayerInputResult::SleepRequested;
     }
     if (wake_gesture_requests_settings(canvas)) {
-        return true;
+        return PrayerInputResult::SettingsRequested;
     }
-    sticky_touch_clear_interaction();
-    const TickType_t started = xTaskGetTickCount();
-    while (xTaskGetTickCount() - started < kInputWindow) {
+    const bool first_input_window = last_user_activity_ms == 0U;
+    if (first_input_window) {
+        sticky_touch_clear_interaction();
+    }
+    const bool imu_started = sticky_imu_start_monitoring() == ESP_OK;
+    const uint32_t started_ms = static_cast<uint32_t>(
+        pdTICKS_TO_MS(xTaskGetTickCount()));
+    if (first_input_window) {
+        last_user_activity_ms = started_ms;
+    }
+    STICKY_LOGI(kTag,
+                "input=active idle_timeout_ms=%u refresh_ms=%u touch=continuous imu=%s external_power=%d",
+                static_cast<unsigned>(kPrayerInputIdleTimeoutMs),
+                static_cast<unsigned>(refresh_interval_ms),
+                imu_started ? "continuous" : "unavailable",
+                board_charger_external_power_present());
+    while (true) {
+        const uint32_t now_ms = static_cast<uint32_t>(
+            pdTICKS_TO_MS(xTaskGetTickCount()));
+        const uint32_t touch_activity_ms =
+            sticky_touch_last_activity_ms();
+        if (static_cast<int32_t>(
+                touch_activity_ms - last_user_activity_ms) > 0) {
+            last_user_activity_ms = touch_activity_ms;
+        }
+        const PrayerInputWaitDecision decision =
+            prayer_input_wait_decision(
+                now_ms - started_ms,
+                now_ms - last_user_activity_ms,
+                refresh_interval_ms);
+        if (decision != PrayerInputWaitDecision::Continue) {
+            if (imu_started) {
+                sticky_imu_stop_monitoring();
+            }
+            return decision == PrayerInputWaitDecision::Sleep
+                       ? PrayerInputResult::SleepRequested
+                       : PrayerInputResult::RefreshRequested;
+        }
+
         StickyTouchInteraction interaction = {};
         if (sticky_touch_take_interaction(interaction)) {
             const StickyVerticalSwipe swipe = classify_swipe(
@@ -215,12 +258,43 @@ bool settings_requested_by_swipe(Canvas &canvas)
             if (swipe == StickyVerticalSwipe::UpFromBottom) {
                 STICKY_LOGI(kTag,
                             "settings=swipe direction=up_from_bottom result=open");
-                return true;
+                if (imu_started) {
+                    sticky_imu_stop_monitoring();
+                }
+                return PrayerInputResult::SettingsRequested;
+            }
+        }
+
+        if (imu_started) {
+            StickyImuState imu_state = {};
+            if (sticky_imu_get_state(imu_state) == ESP_OK &&
+                imu_state.valid) {
+                if (imu_state.moving) {
+                    last_user_activity_ms = now_ms;
+                }
+                if (imu_state.orientation ==
+                    StickyImuOrientation::Unknown) {
+                    vTaskDelay(pdMS_TO_TICKS(20));
+                    continue;
+                }
+                const CanvasRotation next_rotation =
+                    salah_rotation_from_orientation(
+                        imu_state.orientation,
+                        static_cast<CanvasRotation>(s_last_rotation));
+                if (next_rotation !=
+                    static_cast<CanvasRotation>(s_last_rotation)) {
+                    s_last_rotation = static_cast<uint8_t>(next_rotation);
+                    last_user_activity_ms = now_ms;
+                    sticky_imu_stop_monitoring();
+                    STICKY_LOGI(kTag,
+                                "input=orientation state=changed rotation=%u result=refresh",
+                                static_cast<unsigned>(s_last_rotation));
+                    return PrayerInputResult::RefreshRequested;
+                }
             }
         }
         vTaskDelay(pdMS_TO_TICKS(20));
     }
-    return false;
 }
 
 [[noreturn]] void restart_after_settings(Canvas &canvas,
@@ -317,73 +391,92 @@ uint64_t sleep_interval_us(const PrayerNext &next,
         restart_after_settings(canvas, settings, false);
     }
 
-    StickyRtcDateTime now = {};
-    const bool rtc_ready = current_time(now);
     const bool woke_from_deep_sleep =
         esp_sleep_get_wakeup_cause() != ESP_SLEEP_WAKEUP_UNDEFINED;
-    const bool daily_sync_due = rtc_ready &&
-                                s_last_time_sync_date != date_key(now);
+    bool first_cycle = true;
+    uint32_t last_user_activity_ms = 0U;
+    while (true) {
+        StickyRtcDateTime now = {};
+        const bool rtc_ready = current_time(now);
+        const bool daily_sync_due = rtc_ready &&
+                                    s_last_time_sync_date != date_key(now);
 
-    bool online = false;
-    if (!rtc_ready || !woke_from_deep_sleep || daily_sync_due) {
-        refresh_network_time(settings, now, online);
-    }
+        bool online = false;
+        if (!rtc_ready ||
+            (first_cycle && !woke_from_deep_sleep) ||
+            daily_sync_due) {
+            refresh_network_time(settings, now, online);
+        }
+        first_cycle = false;
 
-    const PrayerDate today_date = prayer_date(now);
-    PrayerSchedule schedule = {};
-    const bool schedule_ready = calculate_local_schedule(
-        settings, today_date, schedule);
-    const PrayerDay *yesterday = prayer_schedule_find(
-        schedule, prayer_date_previous(today_date));
-    const PrayerDay *today = prayer_schedule_find(schedule, today_date);
-    const PrayerDay *tomorrow = prayer_schedule_find(
-        schedule, prayer_date_next(today_date));
-    PrayerNext next = {};
-    const uint16_t current_minutes = static_cast<uint16_t>(
-        now.hour * 60U + now.minute);
-    PrayerWindow window = {};
-    if (!schedule_ready || today == nullptr ||
-        !prayer_find_next(*today, tomorrow, current_minutes, next) ||
-        !prayer_find_window(
-            yesterday, *today, tomorrow, current_minutes, window)) {
+        const PrayerDate today_date = prayer_date(now);
+        PrayerSchedule schedule = {};
+        const bool schedule_ready = calculate_local_schedule(
+            settings, today_date, schedule);
+        const PrayerDay *yesterday = prayer_schedule_find(
+            schedule, prayer_date_previous(today_date));
+        const PrayerDay *today = prayer_schedule_find(schedule, today_date);
+        const PrayerDay *tomorrow = prayer_schedule_find(
+            schedule, prayer_date_next(today_date));
+        PrayerNext next = {};
+        const uint16_t current_minutes = static_cast<uint16_t>(
+            now.hour * 60U + now.minute);
+        PrayerWindow window = {};
+        if (!schedule_ready || today == nullptr ||
+            !prayer_find_next(*today, tomorrow, current_minutes, next) ||
+            !prayer_find_window(
+                yesterday, *today, tomorrow, current_minutes, window)) {
+            canvas.set_rotation(detect_rotation());
+            prayer_page_render_error(canvas,
+                                     "SCHEDULE UNAVAILABLE",
+                                     "CHECK LOCATION AND PRAYER SETTINGS");
+            sticky_display_refresh_monochrome();
+            const PrayerInputResult input_result = wait_for_prayer_input(
+                canvas, kPoweredErrorRefreshMs, last_user_activity_ms);
+            if (input_result == PrayerInputResult::SettingsRequested) {
+                restart_after_settings(canvas, settings, false);
+            }
+            if (input_result == PrayerInputResult::RefreshRequested) {
+                continue;
+            }
+            enter_deep_sleep(kErrorRetryUs);
+        }
+
         canvas.set_rotation(detect_rotation());
-        prayer_page_render_error(canvas,
-                                 "SCHEDULE UNAVAILABLE",
-                                 "CHECK LOCATION AND PRAYER SETTINGS");
+        sticky_display_set_battery_overlay_enabled(true);
+        PrayerPageModel model = {};
+        model.settings = &settings;
+        model.today = today;
+        model.yesterday = yesterday;
+        model.tomorrow = tomorrow;
+        model.next = next;
+        model.window = window;
+        model.current_minutes = current_minutes;
+        model.online = online;
+        prayer_page_render_schedule(canvas, model);
         sticky_display_refresh_monochrome();
-        if (settings_requested_by_swipe(canvas)) {
+
+        if (next.minutes_until == 0U && settings.sound_enabled) {
+            sticky_buzzer_play_prayer_chime();
+            vTaskDelay(pdMS_TO_TICKS(700));
+        }
+        const uint64_t sleep_us = sleep_interval_us(next, now);
+        STICKY_LOGI(kTag,
+                    "cycle=complete prayer=%s minutes_until=%u online=%d sleep_s=%llu",
+                    prayer_id_name(next.prayer),
+                    static_cast<unsigned>(next.minutes_until),
+                    online,
+                    static_cast<unsigned long long>(sleep_us / 1000000ULL));
+        const PrayerInputResult input_result = wait_for_prayer_input(
+            canvas,
+            static_cast<uint32_t>(sleep_us / 1000ULL),
+            last_user_activity_ms);
+        if (input_result == PrayerInputResult::SettingsRequested) {
             restart_after_settings(canvas, settings, false);
         }
-        enter_deep_sleep(kErrorRetryUs);
+        if (input_result == PrayerInputResult::RefreshRequested) {
+            continue;
+        }
+        enter_deep_sleep(sleep_us);
     }
-
-    canvas.set_rotation(detect_rotation());
-    sticky_display_set_battery_overlay_enabled(true);
-    PrayerPageModel model = {};
-    model.settings = &settings;
-    model.today = today;
-    model.yesterday = yesterday;
-    model.tomorrow = tomorrow;
-    model.next = next;
-    model.window = window;
-    model.current_minutes = current_minutes;
-    model.online = online;
-    prayer_page_render_schedule(canvas, model);
-    sticky_display_refresh_monochrome();
-
-    if (next.minutes_until == 0U && settings.sound_enabled) {
-        sticky_buzzer_play_prayer_chime();
-        vTaskDelay(pdMS_TO_TICKS(700));
-    }
-    if (settings_requested_by_swipe(canvas)) {
-        restart_after_settings(canvas, settings, false);
-    }
-    const uint64_t sleep_us = sleep_interval_us(next, now);
-    STICKY_LOGI(kTag,
-                "cycle=complete prayer=%s minutes_until=%u online=%d sleep_s=%llu",
-                prayer_id_name(next.prayer),
-                static_cast<unsigned>(next.minutes_until),
-                online,
-                static_cast<unsigned long long>(sleep_us / 1000000ULL));
-    enter_deep_sleep(sleep_us);
 }

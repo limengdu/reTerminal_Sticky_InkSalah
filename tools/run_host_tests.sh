@@ -129,6 +129,10 @@ compile_and_run display_orientation_test \
     test/display_orientation_test.cpp \
     src/app/display_orientation.cpp
 
+compile_and_run prayer_input_policy_test \
+    -Isrc/app \
+    test/prayer_input_policy_test.cpp
+
 compile_and_run sticky_touch_gesture_test \
     -Isrc/input \
     test/sticky_touch_gesture_test.cpp \
@@ -159,4 +163,4 @@ compile_and_run location_catalog_test \
     test/location_catalog_test.cpp \
     src/location/location_catalog.cpp
 
-echo "[host-test] PASS ${passed_count}/21"
+echo "[host-test] PASS ${passed_count}/22"
