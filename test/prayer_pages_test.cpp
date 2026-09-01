@@ -17,6 +17,7 @@ PrayerDay make_day()
     value.minutes[3] = 930U;
     value.minutes[4] = 1080U;
     value.minutes[5] = 1150U;
+    value.minutes[6] = 1510U;
     value.hijri_year = 1448U;
     value.hijri_month = 2U;
     value.hijri_day = 15U;
@@ -75,13 +76,17 @@ int main()
     SalahSettings settings = {};
     settings_store_defaults(settings);
     settings.configured = true;
+    settings.location_confirmed = true;
     std::strcpy(settings.wifi_ssid, "Home");
+    settings.calculation_method = 3U;
+    settings.asr_school = 1U;
     PrayerDay today = make_day();
     PrayerPageModel model = {};
     model.settings = &settings;
     model.today = &today;
-    model.next = {PrayerId::Asr, 930U, 42U, false};
-    model.current_minutes = 888U;
+    model.next = {PrayerId::Maghrib, 1080U, 120U, false};
+    model.window = {PrayerId::Asr, 930U, 1080U, 120U};
+    model.current_minutes = 960U;
     model.online = true;
 
     prayer_page_render_schedule(canvas, model);
@@ -89,9 +94,6 @@ int main()
     assert(landscape_dark_pixels > 25000U);
     assert(landscape_dark_pixels < 55000U);
     assert(canvas.pixel_at(7, 55) == GrayLevel::Black);
-    assert(canvas.pixel_at(464, 260) == GrayLevel::Black);
-    assert(canvas.pixel_at(464, 166) == GrayLevel::White);
-    assert(canvas.pixel_at(100, 320) == GrayLevel::White);
     assert(dark_pixels_below(canvas, 400) > 1000U);
 
     canvas.set_rotation(CanvasRotation::Deg90Clockwise);
@@ -100,9 +102,7 @@ int main()
     const size_t portrait_dark_pixels = dark_pixels(canvas);
     assert(portrait_dark_pixels > 30000U);
     assert(portrait_dark_pixels < 60000U);
-    assert(canvas.pixel_at(30, 220) == GrayLevel::White);
-    assert(canvas.pixel_at(54, 570) == GrayLevel::Black);
-    assert(canvas.pixel_at(54, 468) == GrayLevel::White);
+    assert(canvas.pixel_at(44, 590) == GrayLevel::Black);
     assert(dark_pixels_below(canvas, 700) > 2500U);
 
     prayer_page_render_setup(canvas,

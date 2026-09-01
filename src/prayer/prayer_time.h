@@ -25,6 +25,7 @@ enum class PrayerTimeSlot : uint8_t {
     Asr,
     Maghrib,
     Isha,
+    Qiyam,
     Count,
 };
 
@@ -48,8 +49,20 @@ struct PrayerNext {
     bool tomorrow = false;
 };
 
-// Parses the leading HH:MM portion used by AlAdhan timing strings.
-// 解析AlAdhan时间字符串开头的HH:MM部分。
+struct PrayerWindow {
+    PrayerId prayer = PrayerId::None;
+    uint16_t start_minutes = 0U;
+    uint16_t end_minutes = 0U;
+    uint16_t minutes_remaining = 0U;
+    bool start_yesterday = false;
+    bool end_tomorrow = false;
+    bool between_prayers = false;
+    bool qiyam_active = false;
+    uint16_t qiyam_start_minutes = 0U;
+};
+
+// Parses the leading HH:MM portion of a civil-time string.
+// 解析民用时间字符串开头的HH:MM部分。
 bool prayer_parse_hhmm(const char *text, uint16_t &minutes);
 
 // Validates one complete date and ordered set of prayer times.
@@ -62,6 +75,14 @@ bool prayer_find_next(const PrayerDay &today,
                       const PrayerDay *tomorrow,
                       uint16_t current_minutes,
                       PrayerNext &next);
+
+// Finds the active obligatory-prayer window and the overlapping Qiyam period.
+// 查找当前主命礼拜窗口，以及可能重叠的后夜礼拜时段。
+bool prayer_find_window(const PrayerDay *yesterday,
+                        const PrayerDay &today,
+                        const PrayerDay *tomorrow,
+                        uint16_t current_minutes,
+                        PrayerWindow &window);
 
 // Selects a battery-conscious display refresh interval for the countdown.
 // 根据倒计时选择兼顾续航的屏幕刷新间隔。
@@ -76,6 +97,7 @@ PrayerTimeSlot prayer_id_slot(PrayerId prayer);
 bool prayer_date_valid(const PrayerDate &date);
 bool prayer_date_equal(const PrayerDate &left, const PrayerDate &right);
 PrayerDate prayer_date_next(const PrayerDate &date);
+PrayerDate prayer_date_previous(const PrayerDate &date);
 void prayer_next_month(uint16_t year,
                        uint8_t month,
                        uint16_t &next_year,

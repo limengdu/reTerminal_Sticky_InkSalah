@@ -23,6 +23,12 @@ int main()
     assert(united_states->recommended_method == 2U);
     assert(location_country_has_city(*united_states, "New York"));
 
+    const LocationCountry *china = location_country_by_code("CN");
+    assert(china != nullptr);
+    assert(china->recommended_method == 3U);
+    assert(china->recommended_asr_school == 1U);
+    assert(location_country_has_city(*china, "Shenzhen"));
+
     assert(location_country_by_code("XX") == nullptr);
     return 0;
 }

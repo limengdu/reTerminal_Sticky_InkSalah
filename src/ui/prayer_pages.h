@@ -8,9 +8,11 @@
 
 struct PrayerPageModel {
     const SalahSettings *settings = nullptr;
+    const PrayerDay *yesterday = nullptr;
     const PrayerDay *today = nullptr;
     const PrayerDay *tomorrow = nullptr;
     PrayerNext next = {};
+    PrayerWindow window = {};
     uint16_t current_minutes = 0U;
     bool online = false;
 };

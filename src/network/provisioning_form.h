@@ -4,12 +4,9 @@
 
 #include "settings_model.h"
 
-// Decodes one application/x-www-form-urlencoded setup submission.
-// 解析一次application/x-www-form-urlencoded格式的配网表单。
-bool provisioning_form_parse(const char *body,
-                             SalahSettings &settings,
-                             char *error,
-                             size_t error_capacity);
-
-bool provisioning_parse_utc_offset(const char *text,
-                                   int16_t &offset_minutes);
+// Decodes the Wi-Fi-only first step of the captive portal.
+// 解析配网页面中只包含Wi-Fi的第一步表单。
+bool provisioning_wifi_form_parse(const char *body,
+                                  SalahSettings &settings,
+                                  char *error,
+                                  size_t error_capacity);

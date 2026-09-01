@@ -15,6 +15,7 @@ PrayerDay make_day(uint16_t year, uint8_t month, uint8_t day)
     value.minutes[static_cast<size_t>(PrayerTimeSlot::Asr)] = 930U;
     value.minutes[static_cast<size_t>(PrayerTimeSlot::Maghrib)] = 1080U;
     value.minutes[static_cast<size_t>(PrayerTimeSlot::Isha)] = 1150U;
+    value.minutes[static_cast<size_t>(PrayerTimeSlot::Qiyam)] = 1510U;
     value.hijri_year = 1448U;
     value.hijri_month = 2U;
     value.hijri_day = day;
@@ -57,6 +58,22 @@ int main()
     assert(next.minutes_until == 525U);
     assert(!prayer_find_next(today, nullptr, 1200U, next));
 
+    PrayerWindow window = {};
+    assert(prayer_find_window(nullptr, today, &tomorrow, 720U, window));
+    assert(window.prayer == PrayerId::Dhuhr);
+    assert(window.minutes_remaining == 210U);
+    assert(prayer_find_window(nullptr, today, &tomorrow, 400U, window));
+    assert(window.between_prayers);
+    assert(window.minutes_remaining == 320U);
+    assert(prayer_find_window(nullptr, today, &tomorrow, 1200U, window));
+    assert(window.prayer == PrayerId::Isha);
+    assert(window.end_tomorrow);
+    assert(!window.qiyam_active);
+    assert(prayer_find_window(&today, tomorrow, nullptr, 80U, window));
+    assert(window.prayer == PrayerId::Isha);
+    assert(window.start_yesterday);
+    assert(window.qiyam_active);
+
     assert(prayer_refresh_interval_seconds(61U) == 600U);
     assert(prayer_refresh_interval_seconds(60U) == 300U);
     assert(prayer_refresh_interval_seconds(11U) == 300U);
@@ -71,6 +88,8 @@ int main()
     assert(prayer_date_equal(leap_day, {2028U, 2U, 29U}));
     const PrayerDate new_year = prayer_date_next({2026U, 12U, 31U});
     assert(prayer_date_equal(new_year, {2027U, 1U, 1U}));
+    const PrayerDate previous_year = prayer_date_previous({2027U, 1U, 1U});
+    assert(prayer_date_equal(previous_year, {2026U, 12U, 31U}));
 
     uint16_t next_year = 0U;
     uint8_t next_month = 0U;

@@ -3,18 +3,18 @@
 #include <algorithm>
 #include <cstdint>
 
-#include "aladhan_client.h"
 #include "app_log.h"
 #include "board_power.h"
 #include "canvas.h"
+#include "device_settings.h"
 #include "display_orientation.h"
 #include "esp_attr.h"
-#include "esp_heap_caps.h"
 #include "esp_sleep.h"
 #include "esp_system.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "prayer_cache.h"
+#include "prayer_calculator.h"
+#include "prayer_schedule.h"
 #include "prayer_pages.h"
 #include "provisioning_portal.h"
 #include "settings_store.h"
@@ -97,7 +97,7 @@ CanvasRotation detect_rotation()
                                  orientation_wakeup_ready);
 }
 
-void show_setup(Canvas &canvas)
+void show_setup(Canvas &canvas, const SalahSettings *existing_settings)
 {
     char ap_ssid[32] = {};
     const esp_err_t ap_result = wifi_service_start_setup_ap(
@@ -118,7 +118,8 @@ void show_setup(Canvas &canvas)
     sticky_display_refresh_monochrome();
 
     SalahSettings saved = {};
-    const esp_err_t portal_result = provisioning_portal_run(saved);
+    const esp_err_t portal_result = provisioning_portal_run(
+        existing_settings, saved);
     if (portal_result != ESP_OK) {
         prayer_page_render_error(canvas,
                                  "SETUP UNAVAILABLE",
@@ -134,7 +135,7 @@ void show_setup(Canvas &canvas)
     }
 }
 
-bool setup_requested()
+bool settings_requested()
 {
     const TickType_t started = xTaskGetTickCount();
     while (xTaskGetTickCount() - started < kInputWindow) {
@@ -148,17 +149,48 @@ bool setup_requested()
     return false;
 }
 
-bool needs_schedule_refresh(const PrayerSchedule &schedule,
-                            const PrayerDate &today)
+[[noreturn]] void restart_after_settings(Canvas &canvas,
+                                         SalahSettings &settings,
+                                         bool first_time)
 {
-    return !prayer_schedule_contains(schedule, today) ||
-           !prayer_schedule_contains(schedule, prayer_date_next(today));
+    const DeviceSettingsResult result = device_settings_run(
+        canvas, settings, first_time);
+    if (result == DeviceSettingsResult::WifiRequested) {
+        show_setup(canvas, &settings);
+    }
+    if (result == DeviceSettingsResult::Failed) {
+        prayer_page_render_error(canvas,
+                                 "SETTINGS UNAVAILABLE",
+                                 "RESTART THE DEVICE");
+        sticky_display_refresh_monochrome();
+        enter_deep_sleep(kErrorRetryUs);
+    }
+    vTaskDelay(pdMS_TO_TICKS(250));
+    esp_restart();
+    while (true) {
+        vTaskDelay(portMAX_DELAY);
+    }
 }
 
-bool refresh_network_data(const SalahSettings &settings,
+bool calculate_local_schedule(const SalahSettings &settings,
+                              const PrayerDate &today,
+                              PrayerSchedule &schedule)
+{
+    prayer_schedule_clear(schedule);
+    const PrayerDate dates[] = {
+        prayer_date_previous(today), today, prayer_date_next(today)};
+    for (const PrayerDate &date : dates) {
+        PrayerDay day = {};
+        if (!prayer_calculate_day(settings, date, day) ||
+            !prayer_schedule_add(schedule, day)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool refresh_network_time(const SalahSettings &settings,
                           StickyRtcDateTime &now,
-                          PrayerSchedule &schedule,
-                          bool schedule_missing,
                           bool &online)
 {
     online = false;
@@ -172,28 +204,6 @@ bool refresh_network_data(const SalahSettings &settings,
                             kTimeSyncTimeoutMs) == ESP_OK;
     if (synced) {
         s_last_time_sync_date = date_key(now);
-    }
-    const PrayerDate local_date = prayer_date(now);
-    if (schedule_missing || needs_schedule_refresh(schedule, local_date)) {
-        // Keeps the transactional two-month download outside the main task stack.
-        // 将两个月的事务性下载缓冲放到PSRAM，避免占用主任务栈。
-        auto *downloaded = static_cast<PrayerSchedule *>(heap_caps_calloc(
-            1U,
-            sizeof(PrayerSchedule),
-            MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
-        if (downloaded == nullptr) {
-            STICKY_LOGE(kTag,
-                        "schedule=allocate memory=psram bytes=%u result=failed",
-                        static_cast<unsigned>(sizeof(PrayerSchedule)));
-        } else {
-            const esp_err_t fetch_result = aladhan_fetch_two_month_schedule(
-                settings, local_date, *downloaded);
-            if (fetch_result == ESP_OK &&
-                prayer_cache_save(*downloaded) == ESP_OK) {
-                schedule = *downloaded;
-            }
-            heap_caps_free(downloaded);
-        }
     }
     wifi_service_stop();
     return synced;
@@ -219,46 +229,51 @@ uint64_t sleep_interval_us(const PrayerNext &next,
     }
     SalahSettings settings = {};
     if (settings_store_load(settings) != ESP_OK) {
-        show_setup(canvas);
+        show_setup(canvas, nullptr);
+    }
+    if (!settings_wifi_valid(settings)) {
+        show_setup(canvas, nullptr);
+    }
+    if (!settings.configured) {
+        restart_after_settings(canvas, settings, true);
     }
 
-    PrayerSchedule schedule = {};
-    const bool cache_loaded = prayer_cache_load(schedule) == ESP_OK;
     StickyRtcDateTime now = {};
     const bool rtc_ready = current_time(now);
-    const PrayerDate initial_date = prayer_date(now);
-    const bool schedule_missing = !cache_loaded || !rtc_ready ||
-                                  needs_schedule_refresh(schedule, initial_date);
     const bool woke_from_deep_sleep =
         esp_sleep_get_wakeup_cause() != ESP_SLEEP_WAKEUP_UNDEFINED;
     const bool daily_sync_due = rtc_ready &&
                                 s_last_time_sync_date != date_key(now);
 
     bool online = false;
-    if (schedule_missing || !woke_from_deep_sleep || daily_sync_due) {
-        refresh_network_data(settings,
-                             now,
-                             schedule,
-                             schedule_missing,
-                             online);
+    if (!rtc_ready || !woke_from_deep_sleep || daily_sync_due) {
+        refresh_network_time(settings, now, online);
     }
 
     const PrayerDate today_date = prayer_date(now);
+    PrayerSchedule schedule = {};
+    const bool schedule_ready = calculate_local_schedule(
+        settings, today_date, schedule);
+    const PrayerDay *yesterday = prayer_schedule_find(
+        schedule, prayer_date_previous(today_date));
     const PrayerDay *today = prayer_schedule_find(schedule, today_date);
     const PrayerDay *tomorrow = prayer_schedule_find(
         schedule, prayer_date_next(today_date));
     PrayerNext next = {};
     const uint16_t current_minutes = static_cast<uint16_t>(
         now.hour * 60U + now.minute);
-    if (today == nullptr ||
-        !prayer_find_next(*today, tomorrow, current_minutes, next)) {
+    PrayerWindow window = {};
+    if (!schedule_ready || today == nullptr ||
+        !prayer_find_next(*today, tomorrow, current_minutes, next) ||
+        !prayer_find_window(
+            yesterday, *today, tomorrow, current_minutes, window)) {
         canvas.set_rotation(detect_rotation());
         prayer_page_render_error(canvas,
                                  "SCHEDULE UNAVAILABLE",
-                                 "CONNECT WI-FI TO REFRESH TIMES");
+                                 "CHECK LOCATION AND PRAYER SETTINGS");
         sticky_display_refresh_monochrome();
-        if (setup_requested()) {
-            show_setup(canvas);
+        if (settings_requested()) {
+            restart_after_settings(canvas, settings, false);
         }
         enter_deep_sleep(kErrorRetryUs);
     }
@@ -268,8 +283,10 @@ uint64_t sleep_interval_us(const PrayerNext &next,
     PrayerPageModel model = {};
     model.settings = &settings;
     model.today = today;
+    model.yesterday = yesterday;
     model.tomorrow = tomorrow;
     model.next = next;
+    model.window = window;
     model.current_minutes = current_minutes;
     model.online = online;
     prayer_page_render_schedule(canvas, model);
@@ -279,8 +296,8 @@ uint64_t sleep_interval_us(const PrayerNext &next,
         sticky_buzzer_play_prayer_chime();
         vTaskDelay(pdMS_TO_TICKS(700));
     }
-    if (setup_requested()) {
-        show_setup(canvas);
+    if (settings_requested()) {
+        restart_after_settings(canvas, settings, false);
     }
     const uint64_t sleep_us = sleep_interval_us(next, now);
     STICKY_LOGI(kTag,

@@ -9,12 +9,20 @@
 
 namespace {
 
-constexpr PrayerId kPrayers[] = {
-    PrayerId::Fajr,
-    PrayerId::Dhuhr,
-    PrayerId::Asr,
-    PrayerId::Maghrib,
-    PrayerId::Isha,
+struct TimelineEntry {
+    const char *name;
+    PrayerTimeSlot slot;
+    PrayerId prayer;
+};
+
+constexpr TimelineEntry kTimeline[] = {
+    {"Fajr", PrayerTimeSlot::Fajr, PrayerId::Fajr},
+    {"Sunrise", PrayerTimeSlot::Sunrise, PrayerId::None},
+    {"Dhuhr", PrayerTimeSlot::Dhuhr, PrayerId::Dhuhr},
+    {"Asr", PrayerTimeSlot::Asr, PrayerId::Asr},
+    {"Maghrib", PrayerTimeSlot::Maghrib, PrayerId::Maghrib},
+    {"Isha", PrayerTimeSlot::Isha, PrayerId::Isha},
+    {"Qiyam", PrayerTimeSlot::Qiyam, PrayerId::None},
 };
 
 int text_width(const char *text, uint8_t scale)
@@ -50,22 +58,32 @@ void format_time(uint16_t minutes, char output[6])
     output[5] = '\0';
 }
 
-void format_countdown(uint16_t minutes, char *output, size_t capacity)
+void format_remaining(uint16_t minutes, char *output, size_t capacity)
 {
-    if (minutes == 0U) {
-        std::snprintf(output, capacity, "Now");
-    } else if (minutes < 60U) {
+    if (minutes < 60U) {
         std::snprintf(output,
                       capacity,
-                      "in %u min",
+                      "%u min remaining",
                       static_cast<unsigned>(minutes));
     } else {
         std::snprintf(output,
                       capacity,
-                      "in %uh %02um",
+                      "%uh %02um remaining",
                       static_cast<unsigned>(minutes / 60U),
                       static_cast<unsigned>(minutes % 60U));
     }
+}
+
+void format_source(const SalahSettings &settings,
+                   char *output,
+                   size_t capacity)
+{
+    std::snprintf(
+        output,
+        capacity,
+        "%s / %s / LOCAL",
+        settings_method_short_name(settings.calculation_method),
+        settings_asr_school_name(settings.asr_school));
 }
 
 void draw_arabic_asset(Canvas &canvas,
@@ -112,7 +130,7 @@ void draw_portrait_header(Canvas &canvas, const PrayerPageModel &model)
 {
     // Keep the battery overlay and the two date lines on a clean white band.
     // 为电量图标和两行日期保留干净的白色顶栏。
-    canvas.fill_rect(0, 0, static_cast<int>(canvas.width()), 58,
+    canvas.fill_rect(0, 0, static_cast<int>(canvas.width()), 78,
                      GrayLevel::White);
     const size_t city_length = std::strlen(model.settings->city);
     canvas.draw_text(18,
@@ -139,6 +157,9 @@ void draw_portrait_header(Canvas &canvas, const PrayerPageModel &model)
                   prayer_hijri_month_name(model.today->hijri_month),
                   static_cast<unsigned>(model.today->hijri_year));
     draw_centered(canvas, 240, 49, hijri, 1, GrayLevel::Black);
+    char source[40] = {};
+    format_source(*model.settings, source, sizeof(source));
+    draw_centered(canvas, 240, 64, source, 1, GrayLevel::Black);
 }
 
 void draw_timeline_marker(Canvas &canvas, int x, int y, bool selected)
@@ -181,9 +202,12 @@ void draw_landscape_header(Canvas &canvas, const PrayerPageModel &model)
                   prayer_hijri_month_name(model.today->hijri_month),
                   static_cast<unsigned>(model.today->hijri_year));
     draw_centered(canvas, 410, 37, hijri, 1, GrayLevel::Black);
+    char source[40] = {};
+    format_source(*model.settings, source, sizeof(source));
+    canvas.draw_text(18, 37, source, 1, GrayLevel::Black);
     canvas.draw_text(622,
                      37,
-                     model.online ? "SYNCED" : "CACHED",
+                     model.online ? "SYNCED" : "LOCAL",
                      1,
                      GrayLevel::Black);
 }
@@ -193,54 +217,78 @@ void draw_landscape_schedule(Canvas &canvas, const PrayerPageModel &model)
     draw_background_asset(canvas, islamic_landscape_background_asset());
     draw_landscape_header(canvas, model);
 
+    const bool between = model.window.between_prayers;
     draw_centered(canvas,
                   200,
-                  142,
-                  model.next.tomorrow ? "TOMORROW'S FIRST PRAYER"
-                                      : "NEXT PRAYER",
+                  116,
+                  between ? "BETWEEN PRAYER WINDOWS"
+                          : "CURRENT PRAYER WINDOW",
                   2,
                   GrayLevel::Black);
     draw_centered(canvas,
                   200,
-                  178,
-                  prayer_id_name(model.next.prayer),
-                  6,
+                  154,
+                  between ? "Next: Dhuhr"
+                          : prayer_id_name(model.window.prayer),
+                  between ? 4 : 6,
                   GrayLevel::Black);
+    char start[6] = {};
+    char end[6] = {};
+    format_time(model.window.start_minutes, start);
+    format_time(model.window.end_minutes, end);
+    char range[20] = {};
+    std::snprintf(range, sizeof(range), "%s - %s", start, end);
+    draw_centered(canvas, 200, 218, range, 4, GrayLevel::Black);
+    if (!between) {
+        draw_arabic_asset(canvas,
+                          200,
+                          270,
+                          model.window.prayer,
+                          GrayLevel::Black);
+    }
+    char remaining[28] = {};
+    format_remaining(model.window.minutes_remaining,
+                     remaining,
+                     sizeof(remaining));
+    draw_centered(canvas, 200, 326, remaining, 2, GrayLevel::Black);
+    if (model.window.qiyam_active) {
+        char qiyam_time[6] = {};
+        char qiyam[28] = {};
+        format_time(model.window.qiyam_start_minutes, qiyam_time);
+        std::snprintf(qiyam,
+                      sizeof(qiyam),
+                      "QIYAM SINCE %s",
+                      qiyam_time);
+        draw_centered(canvas, 200, 356, qiyam, 2, GrayLevel::Black);
+    }
     char next_time[6] = {};
     format_time(model.next.time_minutes, next_time);
-    draw_centered(canvas, 200, 232, next_time, 7, GrayLevel::Black);
-    draw_arabic_asset(canvas,
-                      200,
-                      293,
-                      model.next.prayer,
-                      GrayLevel::Black);
-    char countdown[24] = {};
-    format_countdown(model.next.minutes_until,
-                     countdown,
-                     sizeof(countdown));
-    draw_centered(canvas, 200, 338, countdown, 2, GrayLevel::Black);
+    char next_line[36] = {};
+    std::snprintf(next_line,
+                  sizeof(next_line),
+                  "NEXT %s %s",
+                  prayer_id_name(model.next.prayer),
+                  next_time);
+    draw_centered(canvas, 200, 397, next_line, 1, GrayLevel::Black);
 
-    char sunrise[16] = {};
-    format_time(model.today->minutes[
-                    static_cast<size_t>(PrayerTimeSlot::Sunrise)],
-                next_time);
-    std::snprintf(sunrise, sizeof(sunrise), "SUNRISE %s", next_time);
-    draw_centered(canvas, 200, 378, sunrise, 1, GrayLevel::Black);
-
-    canvas.draw_text(456, 126, "TODAY'S PRAYERS", 2, GrayLevel::Black);
+    canvas.draw_text(456, 92, "TODAY'S TIMES", 2, GrayLevel::Black);
     constexpr int kTimelineX = 454;
-    constexpr int kFirstCenterY = 166;
-    constexpr int kRowStep = 47;
+    constexpr int kFirstCenterY = 132;
+    constexpr int kRowStep = 43;
     canvas.draw_line(kTimelineX,
                      kFirstCenterY,
                      kTimelineX,
-                     kFirstCenterY + 4 * kRowStep,
+                     kFirstCenterY + 6 * kRowStep,
                      GrayLevel::Black);
-    for (size_t index = 0U; index < 5U; ++index) {
-        const PrayerId prayer = kPrayers[index];
+    for (size_t index = 0U; index < 7U; ++index) {
+        const TimelineEntry &entry = kTimeline[index];
         const uint16_t prayer_minutes = model.today->minutes[
-            static_cast<size_t>(prayer_id_slot(prayer))];
-        const bool selected = prayer == model.next.prayer && !model.next.tomorrow;
+            static_cast<size_t>(entry.slot)];
+        const bool selected =
+            (entry.prayer != PrayerId::None &&
+             entry.prayer == model.window.prayer) ||
+            (entry.slot == PrayerTimeSlot::Qiyam &&
+             model.window.qiyam_active);
         const int center_y = kFirstCenterY + static_cast<int>(index) * kRowStep;
         draw_timeline_marker(canvas, kTimelineX, center_y, selected);
         if (selected) {
@@ -249,16 +297,16 @@ void draw_landscape_schedule(Canvas &canvas, const PrayerPageModel &model)
         }
         canvas.draw_text(478,
                          center_y - 7,
-                         prayer_id_name(prayer),
+                         entry.name,
                          2,
                          GrayLevel::Black);
         char time[6] = {};
         format_time(prayer_minutes, time);
-        canvas.draw_text(714, center_y - 7, time, 2, GrayLevel::Black);
+        canvas.draw_text(690, center_y - 7, time, 2, GrayLevel::Black);
         draw_arabic_asset(canvas,
                           632,
                           center_y - 16,
-                          prayer,
+                          entry.prayer,
                           GrayLevel::Black);
     }
 }
@@ -268,57 +316,73 @@ void draw_portrait_schedule(Canvas &canvas, const PrayerPageModel &model)
     draw_background_asset(canvas, islamic_prayer_background_asset());
     draw_portrait_header(canvas, model);
 
+    const bool between = model.window.between_prayers;
     draw_centered(canvas,
                   240,
-                  178,
-                  model.next.tomorrow ? "TOMORROW'S FIRST PRAYER"
-                                      : "NEXT PRAYER",
+                  166,
+                  between ? "BETWEEN PRAYER WINDOWS"
+                          : "CURRENT PRAYER WINDOW",
                   2,
                   GrayLevel::Black);
     draw_centered(canvas,
                   240,
-                  212,
-                  prayer_id_name(model.next.prayer),
-                  6,
+                  188,
+                  between ? "Next: Dhuhr"
+                          : prayer_id_name(model.window.prayer),
+                  between ? 4 : 6,
                   GrayLevel::Black);
-    char next_time[6] = {};
-    format_time(model.next.time_minutes, next_time);
-    draw_centered(canvas, 240, 268, next_time, 8, GrayLevel::Black);
-    draw_arabic_asset(canvas,
-                      240,
-                      335,
-                      model.next.prayer,
-                      GrayLevel::Black);
-    char countdown[24] = {};
-    format_countdown(model.next.minutes_until,
-                     countdown,
-                     sizeof(countdown));
-    draw_centered(canvas, 240, 378, countdown, 2, GrayLevel::Black);
+    char start[6] = {};
+    char end[6] = {};
+    format_time(model.window.start_minutes, start);
+    format_time(model.window.end_minutes, end);
+    char range[20] = {};
+    std::snprintf(range, sizeof(range), "%s - %s", start, end);
+    draw_centered(canvas, 240, 244, range, 5, GrayLevel::Black);
+    if (!between) {
+        draw_arabic_asset(canvas,
+                          240,
+                          300,
+                          model.window.prayer,
+                          GrayLevel::Black);
+    }
+    char remaining[28] = {};
+    format_remaining(model.window.minutes_remaining,
+                     remaining,
+                     sizeof(remaining));
+    draw_centered(canvas, 240, 350, remaining, 2, GrayLevel::Black);
+    if (model.window.qiyam_active) {
+        char qiyam_time[6] = {};
+        char qiyam[28] = {};
+        format_time(model.window.qiyam_start_minutes, qiyam_time);
+        std::snprintf(qiyam,
+                      sizeof(qiyam),
+                      "QIYAM SINCE %s",
+                      qiyam_time);
+        draw_centered(canvas, 240, 378, qiyam, 2, GrayLevel::Black);
+    }
 
-    canvas.draw_line(96, 411, 216, 411, GrayLevel::Black);
-    canvas.draw_circle(240, 411, 4, GrayLevel::Black);
-    canvas.draw_line(264, 411, 384, 411, GrayLevel::Black);
-    canvas.draw_text(24, 428, "TODAY'S PRAYERS", 2, GrayLevel::Black);
-    char sunrise[16] = {};
-    format_time(model.today->minutes[
-                    static_cast<size_t>(PrayerTimeSlot::Sunrise)],
-                next_time);
-    std::snprintf(sunrise, sizeof(sunrise), "SUNRISE %s", next_time);
-    canvas.draw_text(352, 431, sunrise, 1, GrayLevel::Black);
+    canvas.draw_line(96, 416, 216, 416, GrayLevel::Black);
+    canvas.draw_circle(240, 416, 4, GrayLevel::Black);
+    canvas.draw_line(264, 416, 384, 416, GrayLevel::Black);
+    canvas.draw_text(24, 432, "TODAY'S TIMES", 2, GrayLevel::Black);
 
     constexpr int kTimelineX = 44;
-    constexpr int kFirstCenterY = 468;
-    constexpr int kRowStep = 51;
+    constexpr int kFirstCenterY = 470;
+    constexpr int kRowStep = 40;
     canvas.draw_line(kTimelineX,
                      kFirstCenterY,
                      kTimelineX,
-                     kFirstCenterY + 4 * kRowStep,
+                     kFirstCenterY + 6 * kRowStep,
                      GrayLevel::Black);
-    for (size_t index = 0U; index < 5U; ++index) {
-        const PrayerId prayer = kPrayers[index];
+    for (size_t index = 0U; index < 7U; ++index) {
+        const TimelineEntry &entry = kTimeline[index];
         const uint16_t prayer_minutes = model.today->minutes[
-            static_cast<size_t>(prayer_id_slot(prayer))];
-        const bool selected = prayer == model.next.prayer && !model.next.tomorrow;
+            static_cast<size_t>(entry.slot)];
+        const bool selected =
+            (entry.prayer != PrayerId::None &&
+             entry.prayer == model.window.prayer) ||
+            (entry.slot == PrayerTimeSlot::Qiyam &&
+             model.window.qiyam_active);
         const int center_y = kFirstCenterY + static_cast<int>(index) * kRowStep;
         draw_timeline_marker(canvas, kTimelineX, center_y, selected);
         if (selected) {
@@ -327,16 +391,16 @@ void draw_portrait_schedule(Canvas &canvas, const PrayerPageModel &model)
         }
         canvas.draw_text(68,
                          center_y - 10,
-                         prayer_id_name(prayer),
-                         3,
+                         entry.name,
+                         2,
                          GrayLevel::Black);
         char time[6] = {};
         format_time(prayer_minutes, time);
-        canvas.draw_text(374, center_y - 10, time, 3, GrayLevel::Black);
+        canvas.draw_text(390, center_y - 10, time, 2, GrayLevel::Black);
         draw_arabic_asset(canvas,
                           278,
                           center_y - 16,
-                          prayer,
+                          entry.prayer,
                           GrayLevel::Black);
     }
 }

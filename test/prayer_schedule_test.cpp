@@ -13,6 +13,7 @@ PrayerDay make_day(uint8_t day, uint16_t fajr)
     value.minutes[3] = 930U;
     value.minutes[4] = 1080U;
     value.minutes[5] = 1150U;
+    value.minutes[6] = 1510U;
     value.hijri_year = 1448U;
     value.hijri_month = 2U;
     value.hijri_day = day;

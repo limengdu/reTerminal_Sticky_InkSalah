@@ -57,7 +57,9 @@ bool prayer_day_valid(const PrayerDay &day)
     if (!prayer_date_valid(day.date)) {
         return false;
     }
-    for (size_t index = 0U; index < kPrayerTimeSlotCount; ++index) {
+    constexpr size_t kOrderedSlotCount =
+        static_cast<size_t>(PrayerTimeSlot::Qiyam);
+    for (size_t index = 0U; index < kOrderedSlotCount; ++index) {
         if (day.minutes[index] >= 24U * 60U) {
             return false;
         }
@@ -65,9 +67,101 @@ bool prayer_day_valid(const PrayerDay &day)
             return false;
         }
     }
+    const uint16_t qiyam = day.minutes[
+        static_cast<size_t>(PrayerTimeSlot::Qiyam)];
+    if (qiyam <= day.minutes[static_cast<size_t>(PrayerTimeSlot::Isha)] ||
+        qiyam >= 2U * 24U * 60U) {
+        return false;
+    }
     return day.hijri_year >= 1400U && day.hijri_month >= 1U &&
            day.hijri_month <= 12U && day.hijri_day >= 1U &&
            day.hijri_day <= 30U;
+}
+
+bool prayer_find_window(const PrayerDay *yesterday,
+                        const PrayerDay &today,
+                        const PrayerDay *tomorrow,
+                        uint16_t current_minutes,
+                        PrayerWindow &window)
+{
+    if (!prayer_day_valid(today) || current_minutes >= 24U * 60U) {
+        return false;
+    }
+    window = {};
+    const auto at = [&today](PrayerTimeSlot slot) {
+        return today.minutes[static_cast<size_t>(slot)];
+    };
+
+    if (current_minutes < at(PrayerTimeSlot::Fajr)) {
+        if (yesterday == nullptr || !prayer_day_valid(*yesterday) ||
+            !prayer_date_equal(yesterday->date,
+                               prayer_date_previous(today.date))) {
+            return false;
+        }
+        window.prayer = PrayerId::Isha;
+        window.start_minutes = yesterday->minutes[
+            static_cast<size_t>(PrayerTimeSlot::Isha)];
+        window.end_minutes = at(PrayerTimeSlot::Fajr);
+        window.minutes_remaining = window.end_minutes - current_minutes;
+        window.start_yesterday = true;
+        const uint16_t absolute_now = static_cast<uint16_t>(
+            24U * 60U + current_minutes);
+        const uint16_t qiyam = yesterday->minutes[
+            static_cast<size_t>(PrayerTimeSlot::Qiyam)];
+        window.qiyam_active = absolute_now >= qiyam;
+        window.qiyam_start_minutes = qiyam % (24U * 60U);
+        return true;
+    }
+
+    struct WindowBoundary {
+        PrayerTimeSlot start;
+        PrayerTimeSlot end;
+        PrayerId prayer;
+    };
+    constexpr WindowBoundary kWindows[] = {
+        {PrayerTimeSlot::Fajr, PrayerTimeSlot::Sunrise, PrayerId::Fajr},
+        {PrayerTimeSlot::Dhuhr, PrayerTimeSlot::Asr, PrayerId::Dhuhr},
+        {PrayerTimeSlot::Asr, PrayerTimeSlot::Maghrib, PrayerId::Asr},
+        {PrayerTimeSlot::Maghrib, PrayerTimeSlot::Isha, PrayerId::Maghrib},
+    };
+    for (const WindowBoundary &item : kWindows) {
+        const uint16_t start = at(item.start);
+        const uint16_t end = at(item.end);
+        if (current_minutes >= start && current_minutes < end) {
+            window.prayer = item.prayer;
+            window.start_minutes = start;
+            window.end_minutes = end;
+            window.minutes_remaining = end - current_minutes;
+            return true;
+        }
+    }
+    if (current_minutes >= at(PrayerTimeSlot::Sunrise) &&
+        current_minutes < at(PrayerTimeSlot::Dhuhr)) {
+        window.between_prayers = true;
+        window.start_minutes = at(PrayerTimeSlot::Sunrise);
+        window.end_minutes = at(PrayerTimeSlot::Dhuhr);
+        window.minutes_remaining = window.end_minutes - current_minutes;
+        return true;
+    }
+    if (current_minutes >= at(PrayerTimeSlot::Isha)) {
+        if (tomorrow == nullptr || !prayer_day_valid(*tomorrow) ||
+            !prayer_date_equal(tomorrow->date,
+                               prayer_date_next(today.date))) {
+            return false;
+        }
+        window.prayer = PrayerId::Isha;
+        window.start_minutes = at(PrayerTimeSlot::Isha);
+        window.end_minutes = tomorrow->minutes[
+            static_cast<size_t>(PrayerTimeSlot::Fajr)];
+        window.minutes_remaining = static_cast<uint16_t>(
+            24U * 60U - current_minutes + window.end_minutes);
+        window.end_tomorrow = true;
+        const uint16_t qiyam = at(PrayerTimeSlot::Qiyam);
+        window.qiyam_active = current_minutes >= qiyam;
+        window.qiyam_start_minutes = qiyam % (24U * 60U);
+        return true;
+    }
+    return false;
 }
 
 PrayerTimeSlot prayer_id_slot(PrayerId prayer)
@@ -204,6 +298,26 @@ PrayerDate prayer_date_next(const PrayerDate &date)
         ++next.year;
     }
     return next;
+}
+
+PrayerDate prayer_date_previous(const PrayerDate &date)
+{
+    if (!prayer_date_valid(date)) {
+        return {};
+    }
+    PrayerDate previous = date;
+    if (previous.day > 1U) {
+        --previous.day;
+        return previous;
+    }
+    if (previous.month > 1U) {
+        --previous.month;
+    } else {
+        previous.month = 12U;
+        --previous.year;
+    }
+    previous.day = days_in_month(previous.year, previous.month);
+    return previous;
 }
 
 void prayer_next_month(uint16_t year,

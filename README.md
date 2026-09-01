@@ -1,176 +1,135 @@
 # Sticky Salah
 
-Sticky Salah 是面向 Seeed Studio reTerminal Sticky 的原生穆斯林礼拜时间固件。设备默认以竖屏显示当天五场礼拜、下一场礼拜和倒计时；检测到 Sticky 真实横向摆放时，才切换到横屏页面。
+Sticky Salah 是面向 Seeed Studio reTerminal Sticky 的原生穆斯林礼拜时间固件。它根据设备保存的经纬度、日期、UTC 偏移和用户选择的教法参数，在设备本地计算每天的礼拜时间，不依赖在线礼拜时间表。
 
 ## 主要功能
 
-- 默认竖屏大字号日程，横向摆放时切换为双栏礼拜时间轴。
-- 英文礼拜名称与预先生成的阿拉伯文字形。
-- 公历、伊斯兰历、当前城市、同步状态与电池电量。
-- 首次开机使用标准 Captive Portal，手机连接热点后可自动打开配网页。
-- 自动扫描附近 Wi-Fi 并显示为可点击列表；点击后填入下方输入框，输入框也支持直接编辑或手动填写。
-- 249 个 ISO 国家选项、常用城市建议和保存前地点验证。
-- 手机自动填写当前 UTC 偏移，并允许从下拉框调整。
-- 23 个 AlAdhan 官方计算机构/地区选项，以及 Standard / Hanafi 两种 Asr 学派选项。
-- 通过 HTTPS 获取本月和下月礼拜时间，并把日程与设置保存在设备本地。
-- 断网时继续使用本地缓存；联网后校准系统时间和板载 RTC。
-- 距离下一场礼拜较远时每 10 分钟刷新，进入一小时后每 5 分钟刷新，最后 10 分钟每分钟刷新。
-- 可选三音礼拜提醒，并在刷新完成后通过 AI 按键双击重新进入设置。
-- 每次刷新结束后进入深度睡眠，由礼拜定时器、顶部按键或 IMU 横竖姿态变化唤醒，墨水屏在断电后继续保留画面。
+- 显示 `Fajr`、`Sunrise`、`Dhuhr`、`Asr`、`Maghrib`、`Isha`、`Qiyam` 七个时间节点。
+- 主画面显示当前礼拜窗口、开始与结束时间、剩余时长和下一次必行礼拜；`Sunrise` 到 `Dhuhr` 显示为礼拜窗口之间的时段。
+- `Qiyam` 表示夜晚最后三分之一的开始：从当天 `Maghrib` 到次日 `Fajr` 的夜间长度计算得出，它作为与 `Isha` 窗口重叠的自愿礼拜时段显示。
+- 提供常见计算机构、`Standard` 与 `Hanafi` 两类 Asr 规则，以及七个时间各自的 ±30 分钟微调。
+- 默认竖屏显示；设备真实横放后，由 IMU 唤醒并立即切换横屏页面。
+- 热点网页只负责 Wi-Fi。Wi-Fi 页自动扫描附近网络，列表点击与手动输入可以同时使用。
+- 礼拜设置是设备上的原生竖屏触摸菜单，包含地点、机构、Asr 规则、七项微调和提示音。
+- 地点支持设备联网自动估算和触摸屏手动经纬度两种入口；UTC 偏移可按 15 分钟或 1 小时调整。
+- 联网时仅校准系统时间与板载 RTC；网络位置估算为可选功能。礼拜时间的日常计算可离线完成。
+- 每次刷新后进入深度睡眠，由定时器、顶部按键或 IMU 姿态变化唤醒。
 
-一句话总结：它把 Sticky 变成一台低功耗、无需常亮网络连接的礼拜时间牌。
+一句话总结：这是一台按太阳位置本地计算、能显示礼拜窗口的低功耗墨水屏礼拜时间牌。
+
+## 礼拜时间的定义
+
+固件把七个名称解释为：
+
+- `Fajr`：晨礼开始，同时结束前一晚的 `Isha` 窗口。
+- `Sunrise`：日出，结束 `Fajr` 窗口；它是时间边界，不是五番必行礼拜之一。
+- `Dhuhr`：太阳越过当地正午后，晌礼窗口开始。
+- `Asr`：晡礼窗口开始；具体时间受 `Standard` 或 `Hanafi` 影长规则影响。
+- `Maghrib`：日落，昏礼窗口开始。
+- `Isha`：暮光达到所选机构标准后，宵礼窗口开始，并持续到次日 `Fajr`。
+- `Qiyam`：夜晚最后三分之一开始，即 `Maghrib + 2/3 × (次日 Fajr - Maghrib)`。
+
+计算机构主要决定 `Fajr` 与 `Isha` 使用的太阳角度。Asr 学派设置只改变 `Asr`。高纬度暮光在存在正常日出和日落的日期采用角度比例限制。用户参加集体礼拜时，仍以所跟随清真寺公布的实际安排为准。
+
+一句话总结：页面上的钟点是窗口的边界，主画面告诉用户当前处在哪个窗口、还剩多久。
 
 ## 硬件与软件
 
-- [Seeed Studio reTerminal Sticky](https://www.seeedstudio.com/sticky/docs/en/device-guide/hardware-overview/)，ESP32-S3R8，32 MB Flash；LSM6DS3TR-C 的中断信号连接到 GPIO7。
+- [Seeed Studio reTerminal Sticky](https://www.seeedstudio.com/sticky/docs/en/device-guide/hardware-overview/)，ESP32-S3R8，32 MB Flash；LSM6DS3TR-C 中断连接 GPIO7。
 - USB-C 数据线。
-- [Visual Studio Code](https://code.visualstudio.com/) 与 [PlatformIO](https://platformio.org/)，或可直接使用 PlatformIO Core。
-- PlatformIO 平台固定为 `espressif32@6.11.0`，对应 ESP-IDF 5.4.1。
+- [PlatformIO](https://platformio.org/) Core 或 Visual Studio Code PlatformIO 插件。
+- `espressif32@6.11.0` 与 ESP-IDF 5.4.1。
 
-第三方依赖只有 Espressif Button 组件 `4.1.6`。DNS 重定向使用项目内实现的 ESP-IDF/LwIP 网络能力，不增加运行依赖。PlatformIO 第一次构建时会自动下载平台、ESP-IDF 与组件。
+礼拜计算器使用项目内原生 C++ 实现，没有增加计算库。第三方运行依赖只有 Espressif Button 组件 `4.1.6`。
 
 一句话总结：准备 Sticky、USB 数据线和 PlatformIO 就可以构建与烧录。
 
-## 构建
+## 构建、烧录与日志
 
-在项目根目录执行发布版构建：
+在项目根目录构建发布版：
 
 ```bash
 pio run -e sticky-salah-release
 ```
 
-生成的应用固件位于：
-
-```text
-.pio/build/sticky-salah-release/firmware.bin
-```
-
-需要更详细日志时，构建调试版：
+生成的应用固件位于 `.pio/build/sticky-salah-release/firmware.bin`。调试版使用：
 
 ```bash
 pio run -e sticky-salah-debug
 ```
 
-一句话总结：日常烧录使用 release，排查设备日志使用 debug。
-
-## 烧录与串口日志
-
-先连接 Sticky，然后查看系统识别到的串口：
+查看串口并烧录：
 
 ```bash
 pio device list
-```
-
-把下面的 `/dev/cu.usbmodemXXXX` 替换为上一步显示的端口：
-
-```bash
 pio run -e sticky-salah-release -t upload --upload-port /dev/cu.usbmodemXXXX
-```
-
-调试版的串口日志命令是：
-
-```bash
 pio device monitor --port /dev/cu.usbmodemXXXX --baud 115200
 ```
 
-烧录成功时，PlatformIO 最后会显示 `SUCCESS`。调试版正常启动后，日志会包含 `boot=start firmware=0.1.0 profile=debug`。
+把 `/dev/cu.usbmodemXXXX` 换成第一条命令列出的实际端口。构建或烧录成功时最后会显示 `SUCCESS`。
 
-一句话总结：先找到串口，再把同一个串口填进烧录或日志命令。
+一句话总结：先找到串口，再用 release 固件烧录；需要排查时改用 debug。
 
 ## 首次设置
 
-1. 首次启动时，竖屏会显示一个形如 `Sticky-Salah-A1B2` 的 Wi-Fi 名称。
-2. 手机连接这个 Wi-Fi，密码是 `sticky-salah`。
-3. 手机通常会自动打开配网页；也可以在浏览器访问 `http://192.168.4.1`。
-4. 点击上方扫描列表中的家庭 Wi-Fi，名称会自动填入下方输入框；也可以直接编辑或手动输入隐藏网络名称。
-5. 从下拉框选择国家和城市；目录外城市使用 `Other city` 输入。
-6. 确认手机自动选择的 UTC 偏移。
-7. 检查页面推荐的计算机构，并选择本地清真寺使用的 Asr 学派。
-8. 按 `Check and save`。页面会明确标出需要补充的 Wi-Fi、国家或城市；信息完整后，设备会验证 Wi-Fi、互联网时间和 AlAdhan 礼拜数据，全部成功后才保存并重启。
+1. 手机连接设备显示的 `Sticky-Salah-XXXX` 热点，密码为 `sticky-salah`。
+2. 手机通常会自动打开页面，也可以访问 `http://192.168.4.1`。
+3. Wi-Fi 页面会自动扫描附近网络；点击列表项后名称会进入可编辑输入框，隐藏网络也可直接手动输入。
+4. 点击 `Check and save`。联网与校时成功后，设备保存 Wi-Fi 并自动重启。
+5. 设备屏幕自动进入 `SALAH SETTINGS` 原生触摸菜单，并先用公网出口 IP 估算城市、经纬度和 UTC 偏移。
+6. 进入 `LOCATION` 核对地点。点经纬度数值可打开数字键盘精确输入，左右按钮可按 0.1° 调整；时区支持 ±15 分钟和 ±1 小时。
+7. 进入 `CALCULATION` 选择计算机构，以及 `Standard` 或 `Hanafi` Asr 规则。中国默认使用 `Muslim World League + Hanafi`。
+8. 进入 `MINUTE ADJUSTMENTS`，分别为七个时间做 ±30 分钟微调；按需开启 `PRAYER REMINDER`。
+9. 点击 `SAVE & EXIT`。设备会先验证当天能否得到完整时间表，再保存并显示主页面。
 
-计算机构的编号与名称来自 [AlAdhan 官方方法接口](https://api.aladhan.com/v1/methods)。国家名称来自 ISO 3166，常用城市建议来自 AlAdhan 公开城市目录。目录外城市会调用 AlAdhan `timingsByCity` 接口验证，验证通过后才会保存。礼拜时间应与当地清真寺公布的时刻表核对；当地清真寺的做法是最终依据。
+公网 IP 只能估算大致地点，所以自动结果需要在设备屏幕上核对。所有礼拜设置最终保存在 NVS。正常运行时双击顶部 AI 按钮可再次打开设备原生设置；在原生菜单中点 `WI-FI SETUP` 可重新进入热点配网。
 
-进入夏令时或冬令时后，再次打开设置页即可让手机写入新的 UTC 偏移。正常页面刷新后双击 AI 按键，可以重新进入设置。
-
-一句话总结：手机只在首次设置或主动修改设置时连接 Sticky 的本地网页。
-
-### 配网串口验收
-
-调试版会把配网链路拆成独立日志。正常启动时会依次看到：
-
-```text
-wifi=setup_ap state=started result=ok
-wifi=setup_ap ... address=192.168.4.1 dhcp=started ... result=ok
-dns=redirect address=192.168.4.1 port=53 result=ok
-portal=self_test address=http://192.168.4.1/health result=ok
-portal=ready address=http://192.168.4.1/ result=ok
-```
-
-手机连入并打开页面后，还会看到：
-
-```text
-wifi=setup_client state=connected ...
-wifi=setup_client state=address_assigned ip=192.168.4.x ...
-portal=request method=GET path=/
-portal=request method=GET path=/api/wifi/scan
-wifi=scan visible=... returned=... result=ok
-```
-
-启动日志证明设备内部的 AP、DHCP、DNS 和 HTTP 已经就绪；客户端日志证明手机连接、获得地址并把请求送到了 Sticky。保存时还会依次记录 Wi-Fi 连接、网络时间和地点数据验证结果。
-
-一句话总结：串口会直接告诉你配网进行到了哪一层。
+一句话总结：手机只负责让设备联网，礼拜规则全部在设备触摸屏上完成。
 
 ## 设备运行流程
 
-程序入口是 `app_main()`，可以把它理解为整套固件的总开关。它依次完成以下工作：
+程序入口 `app_main()` 每次唤醒按下面顺序运行：
 
 1. 初始化 NVS、供电、I2C、RTC、电池、墨水屏、按键、蜂鸣器和 IMU。
-2. 读取本地设置；新设备直接进入设置页面。
-3. 读取 RTC 和缓存日程。
-4. 在首次启动、跨天或缓存缺少日期时连接 Wi-Fi。
-5. 使用 SNTP 校准时间，再从 AlAdhan 下载本月和下月日程。
-6. 用当前时间计算下一场礼拜和倒计时。
-7. 以竖屏为默认方向，读取 IMU 后在真实横放时绘制横屏页面。
-8. 在礼拜时刻播放可选提示音。
-9. 把 IMU 切换为 12.5 Hz 低功耗姿态检测，计算下一次定时唤醒时间，关闭外设并进入深度睡眠。
-10. 定时器到期、顶部按键按下或横竖姿态变化时重新从第 1 步启动；GPIO7 的 IMU 中断与 GPIO4 的顶部按键统一使用低电平唤醒。
+2. 读取 Wi-Fi、位置和礼拜参数；没有 Wi-Fi 时启动热点网页，首次联网后自动进入设备原生设置。
+3. 读取 RTC；需要校时时连接 Wi-Fi，并用 SNTP 更新系统时间与 RTC。
+4. 按昨天、今天、明天三个日期本地计算时间，保证跨午夜的 `Isha` 和 `Qiyam` 窗口能够正确判断。
+5. 找出当前礼拜窗口、剩余分钟和下一次必行礼拜。
+6. 默认绘制竖屏；IMU 确认设备横放时绘制横屏。
+7. 到达礼拜边界时播放可选提示音。
+8. 配置下一次定时唤醒和低功耗姿态中断，关闭外设并进入深度睡眠。
 
-一句话总结：平时由低功耗 IMU 和定时器站岗，只有时间到、按键按下或设备转动时才叫醒主控刷新画面。
-
-### 三种深睡唤醒验收
-
-调试版在进入深度睡眠前会显示：
+调试版进入睡眠前会看到类似日志：
 
 ```text
 imu=wakeup state=armed mode=4d ... interrupt_pin=7 active_level=low result=ok
 power=deep_sleep wake_button=4 wake_orientation=7 orientation_enabled=1 timer_us=... result=entering
 ```
 
-重新启动时，日志中的 `wake_source` 会分别显示 `timer`、`button` 或 `orientation`。设备横竖摆放变化后，IMU 先唤醒 ESP32，固件确认稳定方向并刷新对应页面，然后再次进入深度睡眠。
+重新启动时，`wake_source` 会显示 `timer`、`button` 或 `orientation`。
 
-一句话总结：串口中的唤醒原因可以直接证明定时器、按键和 IMU 三条链路分别生效。
+一句话总结：主控醒来算三天、画一屏，然后把计时和转动检测交给低功耗硬件。
 
 ## 代码结构
 
 ```text
 boards/                 Sticky 的 PlatformIO 板卡定义
 components/             墨水屏、触摸与日志组件
-src/app/                一次完整唤醒周期的业务入口
+src/app/                唤醒周期与设备原生设置流程
 src/board/              供电、引脚、I2C 与共享 SPI
 src/devices/            RTC、电池与蜂鸣器
 src/display/            SSD1677 显示驱动封装
 src/input/              按键与触摸驱动
-src/location/           ISO 国家、常用城市和推荐计算方法
-src/network/            Wi-Fi、SNTP 与首次设置网页
-src/prayer/             日期、礼拜时间与下一场计算
-src/services/           AlAdhan HTTPS 客户端
-src/storage/            设置和日程缓存
-src/ui/                 画布、字体、阿拉伯文字形与页面
-test/                   可在电脑直接运行的逻辑测试
-tools/                  测试、界面预览与字形生成工具
+src/location/           ISO 国家、城市建议和地区默认参数
+src/network/            Wi-Fi、SNTP、位置估算与 Wi-Fi 配网页面
+src/prayer/             太阳位置计算、日期和礼拜窗口规则
+src/storage/            Wi-Fi、位置与礼拜参数持久化
+src/ui/                 画布、字体、阿拉伯字形与页面
+test/                   可在电脑直接运行的逻辑与策略测试
+tools/                  测试、网页预览与墨水屏预览工具
 ```
 
-一句话总结：硬件驱动、网络、礼拜规则和界面各放在自己的“抽屉”里，后续修改互不打扰。
+一句话总结：网络只负责校时与辅助定位，礼拜规则集中在 `src/prayer/`。
 
 ## 本机测试
 
@@ -183,69 +142,49 @@ bash tools/run_host_tests.sh
 成功时会看到：
 
 ```text
-[host-test] PASS 13/13
+[host-test] PASS 16/16
 ```
 
-十三项检查分别覆盖：
+测试覆盖 HTTP 请求头容量、Wi-Fi 网页职责、Wi-Fi 列表和手动输入、原生设置页触摸区域、经纬度本地计算、Hanafi Asr、七项微调、Qiyam 公式、跨午夜礼拜窗口、页面绘制保护、屏幕方向、深睡唤醒准备、DNS、Wi-Fi 扫描、地区建议以及固件不编译远程礼拜表管线的策略检查。
 
-- Debug、Release 和默认配置的 HTTP 请求头容量至少为 4096 字节。
-- Wi-Fi 扫描列表、可编辑名称输入框、点击填入和页面启动时自动扫描。
-- 双月日程与 NVS 缓存传输缓冲固定使用堆内存，避免重新回到主任务栈。
-- 时间解析、跨天寻找下一场礼拜、闰年和动态刷新间隔。
-- 日程添加、排序、重复日期与容量边界。
-- 首次设置表单、URL 解码、UTC 范围、必填项和超长输入。
-- 横屏、竖屏、设置页、错误页与空数据保护。
-- 冷启动默认竖屏、实体横放切换和未知方向回退。
-- AP 启动、DHCP 运行与 `192.168.4.1` 地址三层就绪条件。
-- HTTPS 暂时性故障的三次尝试上限与重试间隔。
-- DNS 请求解析及 `192.168.4.1` A 记录响应。
-- Wi-Fi 扫描结果去重、信号排序和隐藏 SSID 过滤。
-- 249 个国家、常用城市及地区计算方法推荐。
-
-一句话总结：这些测试先把不依赖硬件的核心规则在电脑上验证清楚。
+一句话总结：不接设备也能先验证核心数学、页面数据流和构建策略。
 
 ## 页面预览
 
-首次配网页面直接从固件源文件中读取，因此预览内容与设备页面保持一致：
+Wi-Fi 配网页预览直接读取固件内嵌的 HTML：
 
 ```bash
-python3 tools/preview_setup_portal.py --port 8766
+python3 tools/preview_setup_portal.py --port 8769
 ```
 
-浏览器打开 `http://127.0.0.1:8766`。
+浏览器打开 `http://127.0.0.1:8769/` 查看 Wi-Fi 页。任意其他路径也会回到同一 Wi-Fi 页面，以适配手机系统的配网探测地址。
 
-墨水屏页面预览器会调用固件实际使用的 `Canvas` 与 `prayer_pages`：
+墨水屏预览器调用固件实际使用的画布和页面代码：
 
 ```bash
-g++ -std=c++17 -Isrc/prayer -Isrc/storage -Isrc/ui tools/render_ui_preview.cpp src/prayer/prayer_time.cpp src/storage/settings_model.cpp src/ui/arabic_prayer_assets.cpp src/ui/islamic_background_asset.cpp src/ui/islamic_landscape_background_asset.cpp src/ui/islamic_setup_background_asset.cpp src/ui/canvas.cpp src/ui/font.cpp src/ui/prayer_pages.cpp -o /tmp/sticky_salah_ui_preview
-/tmp/sticky_salah_ui_preview landscape schedule /tmp/sticky_salah_landscape.pgm
+g++ -std=c++17 -Isrc/prayer -Isrc/storage -Isrc/ui tools/render_ui_preview.cpp src/prayer/prayer_time.cpp src/storage/settings_model.cpp src/ui/arabic_prayer_assets.cpp src/ui/islamic_background_asset.cpp src/ui/islamic_landscape_background_asset.cpp src/ui/islamic_setup_background_asset.cpp src/ui/canvas.cpp src/ui/font.cpp src/ui/prayer_pages.cpp src/ui/prayer_settings_pages.cpp -o /tmp/sticky_salah_ui_preview
 /tmp/sticky_salah_ui_preview portrait schedule /tmp/sticky_salah_portrait.pgm
+/tmp/sticky_salah_ui_preview landscape schedule /tmp/sticky_salah_landscape.pgm
 /tmp/sticky_salah_ui_preview portrait setup /tmp/sticky_salah_setup.pgm
+/tmp/sticky_salah_ui_preview portrait settings-main /tmp/sticky_salah_settings.pgm
+/tmp/sticky_salah_ui_preview portrait settings-location /tmp/sticky_salah_location.pgm
+/tmp/sticky_salah_ui_preview portrait settings-calculation /tmp/sticky_salah_calculation.pgm
+/tmp/sticky_salah_ui_preview portrait settings-adjustments /tmp/sticky_salah_adjustments.pgm
 ```
 
-竖屏礼拜页、首次 Wi-Fi 设置页和横屏礼拜页分别使用可追溯的黑白伊斯兰
-几何背景。设计源图统一保存在 `assets/ui/`，安装 `ffmpeg` 后可重新生成
-固件中的 1-bit 位图：
+背景设计源图位于 `assets/ui/`，对应的 1-bit 固件资源位于 `src/ui/`。
 
-```bash
-python3 tools/generate_islamic_background_asset.py assets/ui/islamic_prayer_background_source.png src/ui/islamic_background_asset.cpp
-python3 tools/generate_islamic_background_asset.py assets/ui/islamic_setup_background_source.png src/ui/islamic_setup_background_asset.cpp --width 480 --height 800 --symbol kIslamicSetupBackground --function islamic_setup_background_asset
-python3 tools/generate_islamic_background_asset.py assets/ui/islamic_landscape_background_source.png src/ui/islamic_landscape_background_asset.cpp --width 800 --height 480 --symbol kIslamicLandscapeBackground --function islamic_landscape_background_asset
-```
+一句话总结：Wi-Fi 网页、主页面和设备原生设置都能在电脑上先看效果。
 
-一句话总结：配网页和墨水屏页面都能先在电脑上看，再烧录到硬件。
+## 数据与网络边界
 
-## 数据与时间边界
+- Wi-Fi 凭据、城市、国家、坐标、UTC 偏移、机构、Asr 规则和微调保存在 ESP32 NVS。
+- 每次计算只读取本地设置、日期和 RTC 时间，不向礼拜时间网站发送请求。
+- 联网用于 SNTP 校时；首次进入原生设置或用户点击 `DETECT LOCATION` 时，设备请求 `ipwho.is` 的免费公开端点获取近似城市、坐标和 UTC 偏移。
+- 固件保存固定 UTC 偏移。进入或退出夏令时后，通过设置页确认新的偏移。
+- 每次只计算昨天、今天、明天三天，没有月表下载和日程缓存。
 
-- Wi-Fi 凭据、城市、国家和选择项保存在 ESP32 的 NVS 中。
-- HTTPS 请求只向 `api.aladhan.com` 发送城市、国家、计算机构和 Asr 学派。
-- 配网提交后先连接用户选择的 Wi-Fi，并调用 AlAdhan 验证五次礼拜时间；HTTPS 暂时性故障最多尝试三次，验证失败时保留配网页和原有设置。
-- 固件缓存当前月与下一个月，最多保存 64 天。
-- 双月日程下载缓冲和 NVS 缓存传输缓冲使用 PSRAM，主任务栈只保留当前运行所需的数据。
-- 时区采用设置页保存的固定 UTC 偏移；季节性时钟变化通过再次设置完成更新。
-- 当前版本以 AlAdhan 返回的当日有序时间为准，适合每天五场时间都落在本地同一自然日内的地区。
-
-一句话总结：设备只保存运行所需的数据，并让时间边界保持清楚、可核对。
+一句话总结：礼拜计算本身离线完成，联网只解决“现在几点”和可选的“我大概在哪”。
 
 ## 驱动来源与许可证
 

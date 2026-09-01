@@ -58,6 +58,10 @@ echo "[host-test] setup_portal_page_test"
 python3 test/setup_portal_page_test.py
 passed_count=$((passed_count + 1))
 
+echo "[host-test] prayer_source_policy_test"
+python3 test/prayer_source_policy_test.py
+passed_count=$((passed_count + 1))
+
 echo "[host-test] large_object_storage_test"
 python3 test/large_object_storage_test.py
 passed_count=$((passed_count + 1))
@@ -66,6 +70,13 @@ compile_and_run prayer_time_test \
     -Isrc/prayer \
     test/prayer_time_test.cpp \
     src/prayer/prayer_time.cpp
+
+compile_and_run prayer_calculator_test \
+    -Isrc/prayer -Isrc/storage \
+    test/prayer_calculator_test.cpp \
+    src/prayer/prayer_calculator.cpp \
+    src/prayer/prayer_time.cpp \
+    src/storage/settings_model.cpp
 
 compile_and_run prayer_schedule_test \
     -Isrc/prayer \
@@ -89,6 +100,13 @@ compile_and_run prayer_pages_test \
     src/ui/islamic_landscape_background_asset.cpp \
     src/ui/islamic_setup_background_asset.cpp \
     src/ui/canvas.cpp src/ui/font.cpp src/ui/prayer_pages.cpp
+
+compile_and_run prayer_settings_pages_test \
+    -Isrc/storage -Isrc/ui \
+    test/prayer_settings_pages_test.cpp \
+    src/storage/settings_model.cpp \
+    src/ui/islamic_setup_background_asset.cpp \
+    src/ui/canvas.cpp src/ui/font.cpp src/ui/prayer_settings_pages.cpp
 
 compile_and_run display_orientation_test \
     -Isrc/app -Isrc/sensors -Isrc/ui \
@@ -120,4 +138,4 @@ compile_and_run location_catalog_test \
     test/location_catalog_test.cpp \
     src/location/location_catalog.cpp
 
-echo "[host-test] PASS ${passed_count}/13"
+echo "[host-test] PASS ${passed_count}/16"

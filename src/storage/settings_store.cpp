@@ -12,7 +12,7 @@ constexpr char kTag[] = "settings_store";
 constexpr char kNamespace[] = "salah_cfg";
 constexpr char kKey[] = "settings";
 constexpr uint32_t kMagic = 0x53414C41U;
-constexpr uint16_t kVersion = 1U;
+constexpr uint16_t kVersion = 3U;
 
 struct SettingsBlob {
     uint32_t magic = kMagic;
@@ -31,6 +31,12 @@ uint32_t checksum_bytes(const void *data, size_t length)
         value *= 16777619U;
     }
     return value;
+}
+
+bool settings_persistable(const SalahSettings &settings)
+{
+    return settings_wifi_valid(settings) &&
+           (!settings.configured || settings_store_valid(settings));
 }
 
 }  // namespace
@@ -53,15 +59,17 @@ esp_err_t settings_store_load(SalahSettings &settings)
     if (size != sizeof(blob) || blob.magic != kMagic ||
         blob.version != kVersion || blob.payload_size != sizeof(SalahSettings) ||
         blob.checksum != checksum_bytes(&blob.settings, sizeof(blob.settings)) ||
-        !settings_store_valid(blob.settings)) {
+        !settings_persistable(blob.settings)) {
         STICKY_LOGW(kTag, "settings=load validity=invalid result=rejected");
         return ESP_ERR_INVALID_CRC;
     }
     settings = blob.settings;
     STICKY_LOGI(kTag,
-                "settings=load city=%s country=%s method=%u school=%u result=ok",
+                "settings=load city=%s country=%s latitude=%.5f longitude=%.5f method=%u school=%u result=ok",
                 settings.city,
                 settings.country,
+                settings.latitude,
+                settings.longitude,
                 static_cast<unsigned>(settings.calculation_method),
                 static_cast<unsigned>(settings.asr_school));
     return ESP_OK;
@@ -69,7 +77,7 @@ esp_err_t settings_store_load(SalahSettings &settings)
 
 esp_err_t settings_store_save(const SalahSettings &settings)
 {
-    if (!settings_store_valid(settings)) {
+    if (!settings_persistable(settings)) {
         return ESP_ERR_INVALID_ARG;
     }
     SettingsBlob blob = {};
@@ -88,9 +96,11 @@ esp_err_t settings_store_save(const SalahSettings &settings)
     nvs_close(handle);
     if (result == ESP_OK) {
         STICKY_LOGI(kTag,
-                    "settings=save city=%s country=%s method=%u result=ok",
+                    "settings=save city=%s country=%s latitude=%.5f longitude=%.5f method=%u result=ok",
                     settings.city,
                     settings.country,
+                    settings.latitude,
+                    settings.longitude,
                     static_cast<unsigned>(settings.calculation_method));
     }
     return result;

@@ -399,7 +399,7 @@ esp_err_t wifi_service_validate_setup_connection(
     const SalahSettings &settings,
     uint32_t timeout_ms)
 {
-    if (!s_initialized || !settings_store_valid(settings)) {
+    if (!s_initialized || !settings_wifi_valid(settings)) {
         return ESP_ERR_INVALID_ARG;
     }
     wifi_config_t config = {};

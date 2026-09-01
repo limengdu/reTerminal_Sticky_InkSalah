@@ -4,12 +4,13 @@
 
 namespace {
 
-#define C(code, name) {code, name, 3U, ""}
-#define M(code, name, method, cities) {code, name, method, cities}
+#define C(code, name) {code, name, 3U, 0U, ""}
+#define M(code, name, method, cities) {code, name, method, 0U, cities}
+#define H(code, name, method, cities) {code, name, method, 1U, cities}
 
-// Country names follow the public ISO 3166 table. City suggestions are a
-// compact offline subset of AlAdhan's published city directory.
-// 国家名称采用公开的ISO 3166表，城市建议来自AlAdhan公开城市目录的离线子集。
+// Country names follow ISO 3166. City suggestions are a compact offline list
+// used only to make location entry faster.
+// 国家名称采用ISO 3166，城市建议是用于加快地点输入的离线精简列表。
 constexpr LocationCountry kCountries[] = {
     C("AD", "Andorra"),
     M("AE", "United Arab Emirates", 16U, "Abu Dhabi|Ajman|Dubai|Ras Al Khaimah|Sharjah|Umm Al Quwain"),
@@ -58,7 +59,7 @@ constexpr LocationCountry kCountries[] = {
     C("CK", "Cook Islands"),
     M("CL", "Chile", 3U, "Santiago"),
     M("CM", "Cameroon", 3U, "Yaounde"),
-    M("CN", "China", 3U, "Beijing|Guangzhou|Shanghai|Shenzhen"),
+    H("CN", "China", 3U, "Beijing|Guangzhou|Shanghai|Shenzhen"),
     M("CO", "Colombia", 3U, "Bogota"),
     M("CR", "Costa Rica", 3U, "San Jose"),
     M("CU", "Cuba", 3U, "Havana"),
@@ -264,6 +265,7 @@ constexpr LocationCountry kCountries[] = {
 
 #undef C
 #undef M
+#undef H
 
 }  // namespace
 
@@ -284,6 +286,19 @@ const LocationCountry *location_country_by_code(const char *code)
     }
     for (const LocationCountry &country : kCountries) {
         if (std::strcmp(country.code, code) == 0) {
+            return &country;
+        }
+    }
+    return nullptr;
+}
+
+const LocationCountry *location_country_by_name(const char *name)
+{
+    if (name == nullptr) {
+        return nullptr;
+    }
+    for (const LocationCountry &country : kCountries) {
+        if (std::strcmp(country.api_name, name) == 0) {
             return &country;
         }
     }

@@ -5,6 +5,7 @@
 
 #include "canvas.h"
 #include "prayer_pages.h"
+#include "prayer_settings_pages.h"
 
 namespace {
 
@@ -18,6 +19,7 @@ PrayerDay sample_day()
     day.minutes[3] = 921U;
     day.minutes[4] = 1075U;
     day.minutes[5] = 1147U;
+    day.minutes[6] = 1574U;
     day.hijri_year = 1448U;
     day.hijri_month = 2U;
     day.hijri_day = 15U;
@@ -47,7 +49,7 @@ int main(int argc, char **argv)
 {
     if (argc != 4) {
         std::fprintf(stderr,
-                     "Usage: render_ui_preview <landscape|portrait> <schedule|setup|error> <output.pgm>\n");
+                     "Usage: render_ui_preview <landscape|portrait> <schedule|setup|error|settings-main|settings-location|settings-calculation|settings-adjustments> <output.pgm>\n");
         return 2;
     }
     const bool portrait = std::strcmp(argv[1], "portrait") == 0;
@@ -60,7 +62,31 @@ int main(int argc, char **argv)
     std::vector<uint8_t> framebuffer(
         static_cast<size_t>(width) * height / 4U, 0xFFU);
     Canvas canvas(width, height, framebuffer.data(), framebuffer.size());
-    if (std::strcmp(argv[2], "setup") == 0) {
+    if (std::strncmp(argv[2], "settings-", 9U) == 0) {
+        if (!portrait) {
+            std::fprintf(stderr, "Native settings preview is portrait-only.\n");
+            return 2;
+        }
+        SalahSettings settings = {};
+        settings_store_defaults(settings);
+        std::strcpy(settings.wifi_ssid, "Home Wi-Fi");
+        settings.configured = true;
+        settings.location_confirmed = true;
+        DeviceSettingsUiState state = {};
+        if (std::strcmp(argv[2], "settings-location") == 0) {
+            state.page = DeviceSettingsPage::Location;
+        } else if (std::strcmp(argv[2], "settings-calculation") == 0) {
+            state.page = DeviceSettingsPage::Calculation;
+        } else if (std::strcmp(argv[2], "settings-adjustments") == 0) {
+            state.page = DeviceSettingsPage::Adjustments;
+            settings.prayer_adjustments[0] = 2;
+            settings.prayer_adjustments[3] = -3;
+        } else if (std::strcmp(argv[2], "settings-main") != 0) {
+            std::fprintf(stderr, "Unknown settings page: %s\n", argv[2]);
+            return 2;
+        }
+        prayer_settings_render(canvas, settings, state);
+    } else if (std::strcmp(argv[2], "setup") == 0) {
         prayer_page_render_setup(canvas,
                                  "Sticky-Salah-A1B2",
                                  "sticky-salah");
@@ -72,14 +98,18 @@ int main(int argc, char **argv)
         SalahSettings settings = {};
         settings_store_defaults(settings);
         settings.configured = true;
+        settings.location_confirmed = true;
         std::strcpy(settings.wifi_ssid, "Home");
         std::strcpy(settings.city, "Shenzhen");
+        settings.calculation_method = 3U;
+        settings.asr_school = 1U;
         PrayerDay today = sample_day();
         PrayerPageModel model = {};
         model.settings = &settings;
         model.today = &today;
-        model.next = {PrayerId::Asr, 921U, 78U, false};
-        model.current_minutes = 843U;
+        model.next = {PrayerId::Maghrib, 1075U, 154U, false};
+        model.window = {PrayerId::Asr, 921U, 1075U, 154U};
+        model.current_minutes = 921U;
         model.online = false;
         prayer_page_render_schedule(canvas, model);
     } else {
