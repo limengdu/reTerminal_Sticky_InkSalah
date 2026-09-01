@@ -183,6 +183,54 @@ bool GT911::readResolution(uint16_t& maxX, uint16_t& maxY)
     return false;
 }
 
+bool GT911::captureWakeGesture(i2c_master_bus_handle_t i2c_bus,
+                               GTWakeGesture& gesture)
+{
+    if(i2c_bus == nullptr)
+    {
+        return false;
+    }
+
+    gesture = {};
+    i2c_bus_ = i2c_bus;
+    constexpr uint8_t kProbeAddresses[] = {GT911_ADDR2, GT911_ADDR1};
+    std::array<uint8_t, 10> data = {};
+    bool captured = false;
+    for(uint8_t address : kProbeAddresses)
+    {
+        if(i2c_master_probe(i2c_bus_, address, kI2CTimeoutMs) != ESP_OK ||
+           !attachDevice(address))
+        {
+            continue;
+        }
+        if(readRegisters(GT911_REG_GESTURE, data.data(), data.size()))
+        {
+            (void)writeRegister(GT911_REG_GESTURE, 0U);
+            gesture.id = data[0];
+            gesture.start_x = static_cast<uint16_t>(
+                data[2] | (static_cast<uint16_t>(data[3]) << 8));
+            gesture.start_y = static_cast<uint16_t>(
+                data[4] | (static_cast<uint16_t>(data[5]) << 8));
+            gesture.end_x = static_cast<uint16_t>(
+                data[6] | (static_cast<uint16_t>(data[7]) << 8));
+            gesture.end_y = static_cast<uint16_t>(
+                data[8] | (static_cast<uint16_t>(data[9]) << 8));
+            captured = gesture.id != 0U;
+        }
+        detachDevice();
+        break;
+    }
+    return captured;
+}
+
+bool GT911::enterGestureMode()
+{
+    constexpr uint8_t kGestureModeCommand = 0x08U;
+    return ready_ &&
+           writeRegister(GT911_REG_COMMAND_CHECK, kGestureModeCommand) &&
+           writeRegister(GT911_REG_COMMAND, kGestureModeCommand);
+}
+
 void GT911::setSensorResolution(uint16_t maxX, uint16_t maxY)
 {
     if(maxX == 0 || maxY == 0)

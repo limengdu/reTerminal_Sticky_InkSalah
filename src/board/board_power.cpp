@@ -73,9 +73,28 @@ esp_err_t configure_active_low_wakeup_input(gpio_num_t pin)
     return result;
 }
 
+esp_err_t configure_active_high_wakeup_input(gpio_num_t pin)
+{
+    gpio_hold_dis(pin);
+    esp_err_t result = gpio_set_direction(pin, GPIO_MODE_INPUT);
+    if (result == ESP_OK) {
+        result = gpio_pulldown_en(pin);
+    }
+    if (result == ESP_OK) {
+        result = gpio_pullup_dis(pin);
+    }
+    if (result == ESP_OK) {
+        result = gpio_hold_en(pin);
+    }
+    return result;
+}
+
 const char *wakeup_source_name(esp_sleep_wakeup_cause_t cause,
                                uint64_t external_status)
 {
+    if (cause == ESP_SLEEP_WAKEUP_EXT0) {
+        return "touch_gesture";
+    }
     if (cause == ESP_SLEEP_WAKEUP_TIMER) {
         return "timer";
     }
@@ -133,6 +152,7 @@ esp_err_t board_power_init()
         PIN_EPD_EN,
         PIN_TOUCH_EN,
         PIN_TOUCH_RST,
+        PIN_TOUCH_INT,
         PIN_SD_EN,
         PIN_BUZZER,
         PIN_IMU_INT,
@@ -175,17 +195,21 @@ esp_err_t board_power_init()
 
 [[noreturn]] void board_power_enter_deep_sleep(
     uint64_t timer_wakeup_us,
-    bool orientation_wakeup_enabled)
+    bool orientation_wakeup_enabled,
+    bool touch_wakeup_enabled,
+    uint8_t touch_wakeup_level)
 {
     const gpio_num_t button_wake_pin =
         static_cast<gpio_num_t>(PIN_TOP_BUTTON);
     const gpio_num_t orientation_wake_pin =
         static_cast<gpio_num_t>(PIN_IMU_INT);
+    const gpio_num_t touch_wake_pin =
+        static_cast<gpio_num_t>(PIN_TOUCH_INT);
     wait_for_sleep_chord_release();
 
-    // This sequence mirrors the hardware demo: the board latch stays high,
-    // while powered peripherals are retained low throughout deep sleep.
-    // 此顺序与硬件示例一致：保持板级锁存为高，同时让各外设供电在深睡期间保持低电平。
+    // Keep the board latch active, retain the touch controller only when
+    // gesture wake is enabled, and power down the remaining peripherals.
+    // 保持板级锁存；仅在启用手势唤醒时保留触摸控制器，其余外设进入断电状态。
     ESP_ERROR_CHECK(hold_output(
         static_cast<gpio_num_t>(PIN_POWER_HOLD), 1));
     ESP_ERROR_CHECK(hold_output(
@@ -193,9 +217,11 @@ esp_err_t board_power_init()
     ESP_ERROR_CHECK(hold_output(
         static_cast<gpio_num_t>(PIN_EPD_EN), 0));
     ESP_ERROR_CHECK(hold_output(
-        static_cast<gpio_num_t>(PIN_TOUCH_EN), 0));
+        static_cast<gpio_num_t>(PIN_TOUCH_EN),
+        touch_wakeup_enabled ? 1 : 0));
     ESP_ERROR_CHECK(hold_output(
-        static_cast<gpio_num_t>(PIN_TOUCH_RST), 0));
+        static_cast<gpio_num_t>(PIN_TOUCH_RST),
+        touch_wakeup_enabled ? 1 : 0));
     ESP_ERROR_CHECK(hold_output(
         static_cast<gpio_num_t>(PIN_SD_EN), 0));
     ESP_ERROR_CHECK(hold_output(
@@ -208,6 +234,15 @@ esp_err_t board_power_init()
             configure_active_low_wakeup_input(orientation_wake_pin));
         external_wakeup_mask |= 1ULL << PIN_IMU_INT;
     }
+    if (touch_wakeup_enabled) {
+        if (touch_wakeup_level == 0U) {
+            ESP_ERROR_CHECK(configure_active_low_wakeup_input(touch_wake_pin));
+        } else {
+            ESP_ERROR_CHECK(configure_active_high_wakeup_input(touch_wake_pin));
+        }
+        ESP_ERROR_CHECK(esp_sleep_enable_ext0_wakeup(
+            touch_wake_pin, touch_wakeup_level));
+    }
     ESP_ERROR_CHECK(esp_sleep_enable_ext1_wakeup_io(
         external_wakeup_mask, ESP_EXT1_WAKEUP_ANY_LOW));
     if (timer_wakeup_us > 0U) {
@@ -216,10 +251,13 @@ esp_err_t board_power_init()
     gpio_deep_sleep_hold_en();
 
     STICKY_LOGI(kTag,
-                "power=deep_sleep wake_button=%d wake_orientation=%d orientation_enabled=%d timer_us=%llu result=entering",
+                "power=deep_sleep wake_button=%d wake_orientation=%d orientation_enabled=%d wake_touch=%d touch_enabled=%d touch_level=%u timer_us=%llu result=entering",
                 PIN_TOP_BUTTON,
                 PIN_IMU_INT,
                 orientation_wakeup_enabled,
+                PIN_TOUCH_INT,
+                touch_wakeup_enabled,
+                static_cast<unsigned>(touch_wakeup_level),
                 static_cast<unsigned long long>(timer_wakeup_us));
     std::fflush(stdout);
     vTaskDelay(pdMS_TO_TICKS(50));

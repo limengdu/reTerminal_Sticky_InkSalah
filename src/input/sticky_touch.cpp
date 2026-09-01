@@ -7,6 +7,7 @@
 #include "app_log.h"
 #include "driver/gpio.h"
 #include "driver/i2c_master.h"
+#include "esp_sleep.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
@@ -30,6 +31,7 @@ constexpr UBaseType_t kInteractionQueueLength = 8;
 constexpr TickType_t kStopTimeout = pdMS_TO_TICKS(1000);
 constexpr uint16_t kTapMoveTolerance = 24U;
 constexpr uint32_t kRecoveryRetryDelayMs = 1000U;
+constexpr TickType_t kGestureModeSettle = pdMS_TO_TICKS(80);
 
 i2c_master_bus_handle_t s_touch_bus = nullptr;
 GT911 s_controller;
@@ -47,6 +49,8 @@ QueueHandle_t s_press_queue = nullptr;
 QueueHandle_t s_interaction_queue = nullptr;
 std::atomic<bool> s_stop_requested{false};
 std::atomic<uint32_t> s_last_activity_ms{0U};
+StickyTouchWakeGesture s_wake_gesture = {};
+bool s_wake_gesture_available = false;
 
 uint32_t monotonic_ms()
 {
@@ -162,6 +166,50 @@ void transform_touch_coordinate(uint16_t controller_x,
     // 显示层会把画布旋转180度后再发送到屏幕。
     screen_x = kDisplayWidth - framebuffer_x - 1U;
     screen_y = kDisplayHeight - framebuffer_y - 1U;
+}
+
+void transform_gesture_coordinate(uint16_t sensor_x,
+                                  uint16_t sensor_y,
+                                  uint16_t &screen_x,
+                                  uint16_t &screen_y)
+{
+    const uint16_t controller_x = scale_coordinate(
+        sensor_x, kPortraitWidth, kDisplayWidth);
+    const uint16_t controller_y = scale_coordinate(
+        sensor_y, kPortraitHeight, kDisplayHeight);
+    transform_touch_coordinate(controller_x, controller_y,
+                               screen_x, screen_y);
+}
+
+void capture_retained_wake_gesture()
+{
+    s_wake_gesture = {};
+    s_wake_gesture_available = false;
+    if (esp_sleep_get_wakeup_cause() != ESP_SLEEP_WAKEUP_EXT0) {
+        return;
+    }
+
+    GTWakeGesture raw = {};
+    if (!s_controller.captureWakeGesture(s_touch_bus, raw)) {
+        STICKY_LOGW(kTag,
+                    "touch=wake_gesture state=missing result=failed");
+        return;
+    }
+    transform_gesture_coordinate(raw.start_x, raw.start_y,
+                                 s_wake_gesture.start_x,
+                                 s_wake_gesture.start_y);
+    transform_gesture_coordinate(raw.end_x, raw.end_y,
+                                 s_wake_gesture.end_x,
+                                 s_wake_gesture.end_y);
+    s_wake_gesture.id = raw.id;
+    s_wake_gesture_available = true;
+    STICKY_LOGI(kTag,
+                "touch=wake_gesture id=0x%02X start_x=%u start_y=%u end_x=%u end_y=%u result=ok",
+                static_cast<unsigned>(s_wake_gesture.id),
+                static_cast<unsigned>(s_wake_gesture.start_x),
+                static_cast<unsigned>(s_wake_gesture.start_y),
+                static_cast<unsigned>(s_wake_gesture.end_x),
+                static_cast<unsigned>(s_wake_gesture.end_y));
 }
 
 uint16_t coordinate_distance(uint16_t first, uint16_t second)
@@ -285,6 +333,9 @@ void touch_task(void *)
 
 esp_err_t sticky_touch_init()
 {
+    if (s_touch_task != nullptr) {
+        return ESP_OK;
+    }
     app_log_register_tag(kTag);
     app_log_register_tag("GT911");
     STICKY_LOGI(kTag,
@@ -323,6 +374,8 @@ esp_err_t sticky_touch_init()
     if (result != ESP_OK) {
         return result;
     }
+
+    capture_retained_wake_gesture();
 
     if (!start_touch_controller("boot")) {
         return ESP_FAIL;
@@ -369,6 +422,32 @@ esp_err_t sticky_touch_init()
     return ESP_OK;
 }
 
+esp_err_t sticky_touch_prepare_gesture_wakeup(uint8_t &wake_level)
+{
+    const esp_err_t stop_result = sticky_touch_stop();
+    if (stop_result != ESP_OK) {
+        return stop_result;
+    }
+    if (s_touch_bus == nullptr || !s_controller.enterGestureMode()) {
+        STICKY_LOGW(kTag,
+                    "touch=gesture_wakeup state=prepare result=failed");
+        return ESP_FAIL;
+    }
+    gpio_set_direction(static_cast<gpio_num_t>(PIN_TOUCH_INT),
+                       GPIO_MODE_INPUT);
+    gpio_pullup_dis(static_cast<gpio_num_t>(PIN_TOUCH_INT));
+    gpio_pulldown_dis(static_cast<gpio_num_t>(PIN_TOUCH_INT));
+    vTaskDelay(kGestureModeSettle);
+    const int idle_level = gpio_get_level(
+        static_cast<gpio_num_t>(PIN_TOUCH_INT));
+    wake_level = idle_level == 0 ? 1U : 0U;
+    STICKY_LOGI(kTag,
+                "touch=gesture_wakeup state=prepared idle_level=%d wake_level=%u result=ok",
+                idle_level,
+                static_cast<unsigned>(wake_level));
+    return ESP_OK;
+}
+
 esp_err_t sticky_touch_stop()
 {
     if (s_touch_task == nullptr) {
@@ -401,6 +480,17 @@ bool sticky_touch_take_interaction(StickyTouchInteraction &interaction)
 {
     return s_interaction_queue != nullptr &&
            xQueueReceive(s_interaction_queue, &interaction, 0) == pdTRUE;
+}
+
+bool sticky_touch_take_wake_gesture(StickyTouchWakeGesture &gesture)
+{
+    if (!s_wake_gesture_available) {
+        return false;
+    }
+    gesture = s_wake_gesture;
+    s_wake_gesture = {};
+    s_wake_gesture_available = false;
+    return true;
 }
 
 void sticky_touch_clear_press()

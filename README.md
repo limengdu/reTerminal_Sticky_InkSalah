@@ -15,9 +15,10 @@ Sticky Salah 是面向 Seeed Studio reTerminal Sticky 的原生穆斯林礼拜�
 - 设备界面统一使用至少 2 倍点阵字号，当前选项、状态、日期和辅助提示都保持近距离可读。
 - 设置页使用粗体标题与常规字重内容建立视觉层级；首次设置只提供保存并开始的完成入口。
 - 原生设置页持续保持可操作状态，直到用户主动完成设置或在日常设置中退出。
+- 主页面从屏幕底部向上滑动即可打开设备设置；设置页从顶部向下滑动会验证、保存并返回主页面，横竖屏主页面使用相同手势方向。
 - 地点支持设备联网自动估算和触摸屏手动经纬度两种入口；UTC 偏移可按 15 分钟或 1 小时调整。
 - 联网时仅校准系统时间与板载 RTC；网络位置估算为可选功能。礼拜时间的日常计算可离线完成。
-- 每次刷新后进入深度睡眠，由定时器、顶部按键或 IMU 姿态变化唤醒。
+- 每次刷新后进入深度睡眠，由定时器、顶部按键、IMU 姿态变化或 GT911 滑动手势唤醒；顶部按键只负责常规唤醒。
 
 一句话总结：这是一台按太阳位置本地计算、能显示礼拜窗口的低功耗墨水屏礼拜时间牌。
 
@@ -39,7 +40,7 @@ Sticky Salah 是面向 Seeed Studio reTerminal Sticky 的原生穆斯林礼拜�
 
 ## 硬件与软件
 
-- [Seeed Studio reTerminal Sticky](https://www.seeedstudio.com/sticky/docs/en/device-guide/hardware-overview/)，ESP32-S3R8，32 MB Flash；LSM6DS3TR-C 中断连接 GPIO7。
+- [Seeed Studio reTerminal Sticky](https://www.seeedstudio.com/sticky/docs/en/device-guide/hardware-overview/)，ESP32-S3R8，32 MB Flash；LSM6DS3TR-C 中断连接 GPIO7，GT911 触摸中断连接 GPIO21。
 - USB-C 数据线。
 - [PlatformIO](https://platformio.org/) Core 或 Visual Studio Code PlatformIO 插件。
 - `espressif32@6.11.0` 与 ESP-IDF 5.4.1。
@@ -86,7 +87,7 @@ pio device monitor --port /dev/cu.usbmodemXXXX --baud 115200
 8. 进入 `MINUTE ADJUSTMENTS`，分别为七个时间做 ±30 分钟微调；按需开启 `PRAYER REMINDER`。
 9. 点击 `SAVE & START`。设备会先验证当天能否得到完整时间表，再保存并显示主页面。
 
-公网 IP 只能估算大致地点，所以自动结果需要在设备屏幕上核对。所有礼拜设置最终保存在 NVS。正常运行时双击顶部 AI 按钮可再次打开设备原生设置；在原生菜单中点 `WI-FI SETUP` 可重新进入热点配网。
+公网 IP 只能估算大致地点，所以自动结果需要在设备屏幕上核对。所有礼拜设置最终保存在 NVS。正常运行时从主页面底部向上滑可再次打开设备原生设置；设置完成后从顶部向下滑会先验证并保存，再返回主页面。在原生菜单中点 `WI-FI SETUP` 可重新进入热点配网。
 
 一句话总结：手机只负责让设备联网，礼拜规则全部在设备触摸屏上完成。
 
@@ -101,16 +102,17 @@ pio device monitor --port /dev/cu.usbmodemXXXX --baud 115200
 5. 找出当前礼拜窗口、剩余分钟和下一次必行礼拜。
 6. 默认绘制竖屏；IMU 确认设备横放时绘制横屏。
 7. 到达礼拜边界时播放可选提示音。
-8. 配置下一次定时唤醒和低功耗姿态中断，关闭外设并进入深度睡眠。
+8. 配置下一次定时唤醒、低功耗姿态中断和 GT911 手势识别，关闭其余外设并进入深度睡眠。
 
 调试版进入睡眠前会看到类似日志：
 
 ```text
 imu=wakeup state=armed mode=4d ... interrupt_pin=7 active_level=low result=ok
-power=deep_sleep wake_button=4 wake_orientation=7 orientation_enabled=1 timer_us=... result=entering
+touch=gesture_wakeup state=prepared idle_level=0 wake_level=1 result=ok
+power=deep_sleep wake_button=4 wake_orientation=7 orientation_enabled=1 wake_touch=21 touch_enabled=1 touch_level=1 timer_us=... result=entering
 ```
 
-重新启动时，`wake_source` 会显示 `timer`、`button` 或 `orientation`。
+重新启动时，`wake_source` 会显示 `timer`、`button`、`orientation` 或 `touch_gesture`。
 
 一句话总结：主控醒来算三天、画一屏，然后把计时和转动检测交给低功耗硬件。
 
@@ -146,10 +148,10 @@ bash tools/run_host_tests.sh
 成功时会看到：
 
 ```text
-[host-test] PASS 20/20
+[host-test] PASS 21/21
 ```
 
-测试覆盖 HTTP 请求头容量、Wi-Fi 网页职责、Wi-Fi 列表和手动输入、设备最小字号策略、粗体与常规字重、首次设置完成入口、原生设置页持续停留策略、原生设置页触摸区域、横竖屏花纹安全区与左右视觉重量、横屏顶部信息居中规则、经纬度本地计算、Hanafi Asr、七项微调、Qiyam 公式、跨午夜礼拜窗口、页面绘制保护、屏幕方向、深睡唤醒准备、DNS、Wi-Fi 扫描、地区建议以及固件不编译远程礼拜表管线的策略检查。
+测试覆盖 HTTP 请求头容量、Wi-Fi 网页职责、Wi-Fi 列表和手动输入、设备最小字号策略、粗体与常规字重、首次设置完成入口、原生设置页持续停留策略、原生设置页触摸区域、横竖屏边缘滑动、横竖屏花纹安全区与左右视觉重量、横屏顶部信息居中规则、经纬度本地计算、Hanafi Asr、七项微调、Qiyam 公式、跨午夜礼拜窗口、页面绘制保护、屏幕方向、深睡唤醒准备、DNS、Wi-Fi 扫描、地区建议以及固件不编译远程礼拜表管线的策略检查。
 
 一句话总结：不接设备也能先验证核心数学、页面数据流和构建策略。
 

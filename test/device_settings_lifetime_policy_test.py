@@ -29,6 +29,18 @@ def main() -> None:
         '"SETTINGS UNAVAILABLE"' not in app_source,
         "An idle settings page must never be presented as a hardware failure.",
     )
+    require(
+        "StickyButtonEvent::DoubleClick" not in app_source,
+        "The AI button must not open native settings.",
+    )
+    require(
+        "StickyVerticalSwipe::UpFromBottom" in app_source,
+        "The schedule page must open settings with an upward edge swipe.",
+    )
+    require(
+        "StickyVerticalSwipe::DownFromTop" in settings_source,
+        "Native settings must close with a downward edge swipe.",
+    )
 
 
 if __name__ == "__main__":

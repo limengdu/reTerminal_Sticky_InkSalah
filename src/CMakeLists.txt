@@ -15,6 +15,7 @@ idf_component_register(
         "display/sticky_display.cpp"
         "input/sticky_button.cpp"
         "input/sticky_touch.cpp"
+        "input/sticky_touch_gesture.cpp"
         "input/sticky_touch_recovery_policy.cpp"
         "location/location_catalog.cpp"
         "network/captive_dns_protocol.cpp"

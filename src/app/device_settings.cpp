@@ -16,6 +16,7 @@
 #include "sticky_display.h"
 #include "sticky_rtc.h"
 #include "sticky_touch.h"
+#include "sticky_touch_gesture.h"
 #include "time_sync.h"
 #include "wifi_service.h"
 
@@ -200,6 +201,28 @@ void mark_manual_location(SalahSettings &settings)
     settings.location_confirmed = true;
 }
 
+StickyVerticalSwipe classify_swipe(Canvas &canvas,
+                                   const StickyTouchInteraction &interaction)
+{
+    int logical_start_x = 0;
+    int logical_start_y = 0;
+    int logical_end_x = 0;
+    int logical_end_y = 0;
+    canvas.physical_to_logical(interaction.start_x,
+                               interaction.start_y,
+                               logical_start_x,
+                               logical_start_y);
+    canvas.physical_to_logical(interaction.end_x,
+                               interaction.end_y,
+                               logical_end_x,
+                               logical_end_y);
+    return sticky_touch_classify_vertical_swipe(
+        {logical_start_x, logical_start_y,
+         logical_end_x, logical_end_y,
+         interaction.ended_at_ms - interaction.started_at_ms},
+        canvas.width(), canvas.height());
+}
+
 }  // namespace
 
 DeviceSettingsResult device_settings_run(Canvas &canvas,
@@ -222,6 +245,7 @@ DeviceSettingsResult device_settings_run(Canvas &canvas,
         return DeviceSettingsResult::Failed;
     }
     sticky_touch_clear_press();
+    sticky_touch_clear_interaction();
     if (first_time && !settings.location_confirmed) {
         // First-time setup proposes an IP-based location for touch review.
         // 首次设置先给出公网IP估算地点，再交给用户在触摸屏上核对。
@@ -234,6 +258,19 @@ DeviceSettingsResult device_settings_run(Canvas &canvas,
     // Keeps the native menu open until the user chooses a terminal action.
     // 原生设置菜单保持打开，直到用户主动选择保存、取消或配网。
     while (true) {
+        StickyTouchInteraction interaction = {};
+        if (sticky_touch_take_interaction(interaction) &&
+            classify_swipe(canvas, interaction) ==
+                StickyVerticalSwipe::DownFromTop) {
+            if (validate_and_save(settings, state)) {
+                STICKY_LOGI(kTag,
+                            "settings=swipe direction=down_from_top result=save_and_close");
+                sticky_touch_stop();
+                return DeviceSettingsResult::Saved;
+            }
+            refresh(canvas, settings, state);
+            continue;
+        }
         StickyTouchPress press = {};
         if (!sticky_touch_take_press(press)) {
             vTaskDelay(pdMS_TO_TICKS(20));

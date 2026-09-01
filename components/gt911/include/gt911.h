@@ -9,8 +9,10 @@
 #define GT911_ADDR2 0x14
 
 #define GT911_REG_COMMAND 0x8040
+#define GT911_REG_COMMAND_CHECK 0x8046
 #define GT911_REG_CONFIG_START 0x8047
 #define GT911_REG_ID 0x8140
+#define GT911_REG_GESTURE 0x814B
 #define GT911_REG_COORD_RES 0x8146
 #define GT911_REG_STATUS 0x814E
 #define GT911_REG_POINTS 0x8150
@@ -20,6 +22,14 @@ struct GTPoint {
     uint16_t y;
     uint16_t size;
     uint8_t id;
+};
+
+struct GTWakeGesture {
+    uint8_t id;
+    uint16_t start_x;
+    uint16_t start_y;
+    uint16_t end_x;
+    uint16_t end_y;
 };
 
 using TouchCallback = std::function<void(int8_t, const GTPoint*)>;
@@ -42,6 +52,15 @@ public:
     void setRotation(uint8_t rotation);
     bool readResolution(uint16_t& maxX, uint16_t& maxY);
     void setSensorResolution(uint16_t maxX, uint16_t maxY);
+
+    // Reads the retained wake gesture before the normal reset flow clears it.
+    // 在常规复位流程清除数据前读取保留的唤醒手势。
+    bool captureWakeGesture(i2c_master_bus_handle_t i2c_bus,
+                            GTWakeGesture& gesture);
+
+    // Places the powered controller in hardware gesture-recognition mode.
+    // 让已上电的控制器进入硬件手势识别模式。
+    bool enterGestureMode();
 
     bool isReady() const { return ready_; }
     uint8_t address() const { return addr_; }

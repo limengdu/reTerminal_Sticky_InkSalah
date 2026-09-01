@@ -12,8 +12,8 @@ struct StickyTouchPress {
     uint32_t captured_at_ms = 0;
 };
 
-// One complete contact path used to recognize swipe gestures.
-// 一条完整接触轨迹，用于识别应用选择器滑动手势。
+// One complete contact path used to recognize page edge swipes.
+// 一条完整接触轨迹，用于识别页面边缘滑动手势。
 struct StickyTouchInteraction {
     uint16_t start_x = 0;
     uint16_t start_y = 0;
@@ -21,6 +21,16 @@ struct StickyTouchInteraction {
     uint16_t end_y = 0;
     uint32_t started_at_ms = 0;
     uint32_t ended_at_ms = 0;
+};
+
+// One gesture retained by GT911 while the main processor was asleep.
+// 主处理器休眠期间由GT911保留的一次唤醒手势。
+struct StickyTouchWakeGesture {
+    uint8_t id = 0;
+    uint16_t start_x = 0;
+    uint16_t start_y = 0;
+    uint16_t end_x = 0;
+    uint16_t end_y = 0;
 };
 
 // Powers the GT911 and starts the coordinate sampling task.
@@ -31,6 +41,10 @@ esp_err_t sticky_touch_init();
 // 在深度睡眠关闭触摸供电前，安全停止轮询任务。
 esp_err_t sticky_touch_stop();
 
+// Stops polling and enables GT911 hardware gesture recognition for sleep.
+// 停止轮询并开启GT911硬件手势识别，供休眠期间使用。
+esp_err_t sticky_touch_prepare_gesture_wakeup(uint8_t &wake_level);
+
 // Consumes the oldest queued tap after the finger is released without a drag.
 // 手指未发生拖动并抬起后，按顺序取出最早的轻触事件。
 bool sticky_touch_take_press(StickyTouchPress &press);
@@ -38,6 +52,10 @@ bool sticky_touch_take_press(StickyTouchPress &press);
 // Consumes one completed finger path from contact to release.
 // 取出一条从手指接触到抬起为止的完整轨迹。
 bool sticky_touch_take_interaction(StickyTouchInteraction &interaction);
+
+// Consumes the gesture that caused the latest deep-sleep wakeup.
+// 取出最近一次触发深度睡眠唤醒的手势。
+bool sticky_touch_take_wake_gesture(StickyTouchWakeGesture &gesture);
 
 // Discards all queued presses recorded for a previous interaction context.
 // 丢弃为上一个交互场景记录的全部排队按下事件。

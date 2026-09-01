@@ -18,11 +18,12 @@
 #include "prayer_pages.h"
 #include "provisioning_portal.h"
 #include "settings_store.h"
-#include "sticky_button.h"
 #include "sticky_buzzer.h"
 #include "sticky_display.h"
 #include "sticky_imu.h"
 #include "sticky_rtc.h"
+#include "sticky_touch.h"
+#include "sticky_touch_gesture.h"
 #include "time_sync.h"
 #include "wifi_service.h"
 
@@ -87,6 +88,16 @@ CanvasRotation detect_rotation()
                     esp_err_to_name(imu_result));
     }
 
+    uint8_t touch_wakeup_level = 1U;
+    const esp_err_t touch_result =
+        sticky_touch_prepare_gesture_wakeup(touch_wakeup_level);
+    const bool touch_wakeup_ready = touch_result == ESP_OK;
+    if (!touch_wakeup_ready) {
+        STICKY_LOGW(kTag,
+                    "sleep=touch_wakeup state=disabled result=%s",
+                    esp_err_to_name(touch_result));
+    }
+
     const esp_err_t display_result = sticky_display_sleep();
     if (display_result != ESP_OK) {
         STICKY_LOGW(kTag,
@@ -94,7 +105,9 @@ CanvasRotation detect_rotation()
                     esp_err_to_name(display_result));
     }
     board_power_enter_deep_sleep(timer_wakeup_us,
-                                 orientation_wakeup_ready);
+                                 orientation_wakeup_ready,
+                                 touch_wakeup_ready,
+                                 touch_wakeup_level);
 }
 
 void show_setup(Canvas &canvas, const SalahSettings *existing_settings)
@@ -135,14 +148,75 @@ void show_setup(Canvas &canvas, const SalahSettings *existing_settings)
     }
 }
 
-bool settings_requested()
+StickyVerticalSwipe classify_swipe(Canvas &canvas,
+                                   uint16_t start_x,
+                                   uint16_t start_y,
+                                   uint16_t end_x,
+                                   uint16_t end_y,
+                                   uint32_t duration_ms)
 {
+    int logical_start_x = 0;
+    int logical_start_y = 0;
+    int logical_end_x = 0;
+    int logical_end_y = 0;
+    canvas.physical_to_logical(start_x, start_y,
+                               logical_start_x, logical_start_y);
+    canvas.physical_to_logical(end_x, end_y,
+                               logical_end_x, logical_end_y);
+    return sticky_touch_classify_vertical_swipe(
+        {logical_start_x, logical_start_y,
+         logical_end_x, logical_end_y, duration_ms},
+        canvas.width(), canvas.height());
+}
+
+bool wake_gesture_requests_settings(Canvas &canvas)
+{
+    StickyTouchWakeGesture gesture = {};
+    if (!sticky_touch_take_wake_gesture(gesture)) {
+        return false;
+    }
+    const bool directional_swipe = gesture.id == 0xAAU ||
+                                   gesture.id == 0xBBU ||
+                                   gesture.id == 0xABU ||
+                                   gesture.id == 0xBAU;
+    const bool requested = directional_swipe &&
+        classify_swipe(canvas,
+                       gesture.start_x, gesture.start_y,
+                       gesture.end_x, gesture.end_y, 0U) ==
+            StickyVerticalSwipe::UpFromBottom;
+    STICKY_LOGI(kTag,
+                "settings=wake_gesture id=0x%02X requested=%d",
+                static_cast<unsigned>(gesture.id), requested);
+    return requested;
+}
+
+bool settings_requested_by_swipe(Canvas &canvas)
+{
+    const esp_err_t touch_result = sticky_touch_init();
+    if (touch_result != ESP_OK) {
+        STICKY_LOGW(kTag,
+                    "settings=touch_input result=%s",
+                    esp_err_to_name(touch_result));
+        return false;
+    }
+    if (wake_gesture_requests_settings(canvas)) {
+        return true;
+    }
+    sticky_touch_clear_interaction();
     const TickType_t started = xTaskGetTickCount();
     while (xTaskGetTickCount() - started < kInputWindow) {
-        StickyButtonEvent event = StickyButtonEvent::None;
-        if (sticky_button_take_event(event) &&
-            event == StickyButtonEvent::DoubleClick) {
-            return true;
+        StickyTouchInteraction interaction = {};
+        if (sticky_touch_take_interaction(interaction)) {
+            const StickyVerticalSwipe swipe = classify_swipe(
+                canvas,
+                interaction.start_x, interaction.start_y,
+                interaction.end_x, interaction.end_y,
+                interaction.ended_at_ms - interaction.started_at_ms);
+            if (swipe == StickyVerticalSwipe::UpFromBottom) {
+                STICKY_LOGI(kTag,
+                            "settings=swipe direction=up_from_bottom result=open");
+                return true;
+            }
         }
         vTaskDelay(pdMS_TO_TICKS(20));
     }
@@ -236,6 +310,13 @@ uint64_t sleep_interval_us(const PrayerNext &next,
         restart_after_settings(canvas, settings, true);
     }
 
+    canvas.set_rotation(static_cast<CanvasRotation>(s_last_rotation));
+    if (esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_EXT0 &&
+        sticky_touch_init() == ESP_OK &&
+        wake_gesture_requests_settings(canvas)) {
+        restart_after_settings(canvas, settings, false);
+    }
+
     StickyRtcDateTime now = {};
     const bool rtc_ready = current_time(now);
     const bool woke_from_deep_sleep =
@@ -270,7 +351,7 @@ uint64_t sleep_interval_us(const PrayerNext &next,
                                  "SCHEDULE UNAVAILABLE",
                                  "CHECK LOCATION AND PRAYER SETTINGS");
         sticky_display_refresh_monochrome();
-        if (settings_requested()) {
+        if (settings_requested_by_swipe(canvas)) {
             restart_after_settings(canvas, settings, false);
         }
         enter_deep_sleep(kErrorRetryUs);
@@ -294,7 +375,7 @@ uint64_t sleep_interval_us(const PrayerNext &next,
         sticky_buzzer_play_prayer_chime();
         vTaskDelay(pdMS_TO_TICKS(700));
     }
-    if (settings_requested()) {
+    if (settings_requested_by_swipe(canvas)) {
         restart_after_settings(canvas, settings, false);
     }
     const uint64_t sleep_us = sleep_interval_us(next, now);
