@@ -12,6 +12,7 @@
 #include "esp_attr.h"
 #include "esp_sleep.h"
 #include "esp_system.h"
+#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "prayer_calculator.h"
@@ -41,6 +42,11 @@ constexpr uint32_t kPoweredErrorRefreshMs = 60000U;
 RTC_DATA_ATTR uint32_t s_last_time_sync_date = 0U;
 RTC_DATA_ATTR uint8_t s_last_rotation =
     static_cast<uint8_t>(CanvasRotation::Deg90CounterClockwise);
+
+uint32_t monotonic_ms()
+{
+    return static_cast<uint32_t>(esp_timer_get_time() / 1000LL);
+}
 
 uint32_t date_key(const StickyRtcDateTime &value)
 {
@@ -214,8 +220,7 @@ PrayerInputResult wait_for_prayer_input(Canvas &canvas,
         sticky_touch_clear_interaction();
     }
     const bool imu_started = sticky_imu_start_monitoring() == ESP_OK;
-    const uint32_t started_ms = static_cast<uint32_t>(
-        pdTICKS_TO_MS(xTaskGetTickCount()));
+    const uint32_t started_ms = monotonic_ms();
     if (first_input_window) {
         last_user_activity_ms = started_ms;
     }
@@ -226,30 +231,18 @@ PrayerInputResult wait_for_prayer_input(Canvas &canvas,
                 imu_started ? "continuous" : "unavailable",
                 board_charger_external_power_present());
     while (true) {
-        const uint32_t now_ms = static_cast<uint32_t>(
-            pdTICKS_TO_MS(xTaskGetTickCount()));
         const uint32_t touch_activity_ms =
             sticky_touch_last_activity_ms();
+        uint32_t now_ms = monotonic_ms();
         if (static_cast<int32_t>(
                 touch_activity_ms - last_user_activity_ms) > 0) {
             last_user_activity_ms = touch_activity_ms;
         }
-        const PrayerInputWaitDecision decision =
-            prayer_input_wait_decision(
-                now_ms - started_ms,
-                now_ms - last_user_activity_ms,
-                refresh_interval_ms);
-        if (decision != PrayerInputWaitDecision::Continue) {
-            if (imu_started) {
-                sticky_imu_stop_monitoring();
-            }
-            return decision == PrayerInputWaitDecision::Sleep
-                       ? PrayerInputResult::SleepRequested
-                       : PrayerInputResult::RefreshRequested;
-        }
 
         StickyTouchInteraction interaction = {};
         if (sticky_touch_take_interaction(interaction)) {
+            now_ms = monotonic_ms();
+            last_user_activity_ms = now_ms;
             const StickyVerticalSwipe swipe = classify_swipe(
                 canvas,
                 interaction.start_x, interaction.start_y,
@@ -292,6 +285,32 @@ PrayerInputResult wait_for_prayer_input(Canvas &canvas,
                     return PrayerInputResult::RefreshRequested;
                 }
             }
+        }
+
+        now_ms = monotonic_ms();
+        const uint32_t refresh_elapsed_ms =
+            prayer_input_elapsed_ms(now_ms, started_ms);
+        const uint32_t idle_elapsed_ms =
+            prayer_input_elapsed_ms(now_ms, last_user_activity_ms);
+        const PrayerInputWaitDecision decision =
+            prayer_input_wait_decision(
+                refresh_elapsed_ms,
+                idle_elapsed_ms,
+                refresh_interval_ms);
+        if (decision != PrayerInputWaitDecision::Continue) {
+            if (imu_started) {
+                sticky_imu_stop_monitoring();
+            }
+            if (decision == PrayerInputWaitDecision::Sleep) {
+                STICKY_LOGI(kTag,
+                            "input=inactive reason=idle_timeout idle_ms=%u result=sleep",
+                            static_cast<unsigned>(idle_elapsed_ms));
+                return PrayerInputResult::SleepRequested;
+            }
+            STICKY_LOGI(kTag,
+                        "input=refresh reason=interval elapsed_ms=%u result=refresh",
+                        static_cast<unsigned>(refresh_elapsed_ms));
+            return PrayerInputResult::RefreshRequested;
         }
         vTaskDelay(pdMS_TO_TICKS(20));
     }

@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- 统一礼拜页与触摸控制器的空闲计时来源，确保三分钟交互窗口内持续响应滑动。
+
 ## 0.1.0 - 2026-08-28
 
 - 建立 reTerminal Sticky 的 PlatformIO ESP-IDF 独立工程。
