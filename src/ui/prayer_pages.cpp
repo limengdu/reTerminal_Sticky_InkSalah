@@ -101,18 +101,6 @@ void format_remaining(uint16_t minutes, char *output, size_t capacity)
     }
 }
 
-void format_source(const SalahSettings &settings,
-                   char *output,
-                   size_t capacity)
-{
-    std::snprintf(
-        output,
-        capacity,
-        "%s / %s / LOCAL",
-        settings_method_short_name(settings.calculation_method),
-        settings_asr_school_name(settings.asr_school));
-}
-
 void draw_arabic_asset(Canvas &canvas,
                        int center_x,
                        int y,
@@ -184,25 +172,17 @@ void draw_portrait_header(Canvas &canvas, const PrayerPageModel &model)
                   2,
                   GrayLevel::Black);
 
-    char hijri[48] = {};
-    std::snprintf(hijri,
-                  sizeof(hijri),
-                  "%u %s %u AH",
-                  static_cast<unsigned>(model.today->hijri_day),
-                  prayer_hijri_month_name(model.today->hijri_month),
-                  static_cast<unsigned>(model.today->hijri_year));
-    char source[40] = {};
-    format_source(*model.settings, source, sizeof(source));
-    char metadata[96] = {};
-    std::snprintf(metadata,
-                  sizeof(metadata),
-                  "%s  %s",
-                  hijri,
-                  source);
+    char rule[32] = {};
+    std::snprintf(
+        rule,
+        sizeof(rule),
+        "%s / %s",
+        settings_method_short_name(model.settings->calculation_method),
+        settings_asr_school_name(model.settings->asr_school));
     draw_centered(canvas,
                   kPageCenterX,
                   48,
-                  metadata,
+                  rule,
                   2,
                   GrayLevel::Black);
 }

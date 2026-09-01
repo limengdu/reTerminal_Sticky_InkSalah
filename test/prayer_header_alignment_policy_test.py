@@ -26,6 +26,12 @@ def main() -> None:
         and portrait_header.count("kPageCenterX,") == 3,
         "Every portrait metadata row must use the physical page center.",
     )
+    require(
+        "format_source" not in portrait_header
+        and "prayer_hijri_month_name" not in portrait_header
+        and '"%s / %s"' in portrait_header,
+        "Portrait metadata must show only city, Gregorian date, and the compact calculation rule.",
+    )
 
     match = re.search(
         r"void draw_landscape_header\(.*?\n\}\n\nvoid draw_landscape_schedule",
