@@ -316,10 +316,12 @@ PrayerInputResult wait_for_prayer_input(Canvas &canvas,
     }
 }
 
-[[noreturn]] void restart_after_settings(Canvas &canvas,
-                                         SalahSettings &settings,
-                                         bool first_time)
+bool run_settings(Canvas &canvas,
+                  SalahSettings &settings,
+                  bool first_time)
 {
+    const int16_t previous_utc_offset_minutes =
+        settings.utc_offset_minutes;
     const DeviceSettingsResult result = device_settings_run(
         canvas, settings, first_time);
     if (result == DeviceSettingsResult::WifiRequested) {
@@ -330,11 +332,14 @@ PrayerInputResult wait_for_prayer_input(Canvas &canvas,
         // 设置流程已经显示具体的硬件错误，此处直接等待自动重试。
         enter_deep_sleep(kErrorRetryUs);
     }
-    vTaskDelay(pdMS_TO_TICKS(250));
-    esp_restart();
-    while (true) {
-        vTaskDelay(portMAX_DELAY);
-    }
+    const bool timezone_changed =
+        result == DeviceSettingsResult::Saved &&
+        previous_utc_offset_minutes != settings.utc_offset_minutes;
+    STICKY_LOGI(kTag,
+                "settings=closed result=%s mode=in_place timezone_changed=%d",
+                result == DeviceSettingsResult::Saved ? "saved" : "cancelled",
+                timezone_changed);
+    return timezone_changed;
 }
 
 bool calculate_local_schedule(const SalahSettings &settings,
@@ -400,14 +405,18 @@ uint64_t sleep_interval_us(const PrayerNext &next,
         show_setup(canvas, nullptr);
     }
     if (!settings.configured) {
-        restart_after_settings(canvas, settings, true);
+        if (run_settings(canvas, settings, true)) {
+            s_last_time_sync_date = 0U;
+        }
     }
 
     canvas.set_rotation(static_cast<CanvasRotation>(s_last_rotation));
     if (esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_EXT0 &&
         sticky_touch_init() == ESP_OK &&
         wake_gesture_requests_settings(canvas)) {
-        restart_after_settings(canvas, settings, false);
+        if (run_settings(canvas, settings, false)) {
+            s_last_time_sync_date = 0U;
+        }
     }
 
     const bool woke_from_deep_sleep =
@@ -453,7 +462,11 @@ uint64_t sleep_interval_us(const PrayerNext &next,
             const PrayerInputResult input_result = wait_for_prayer_input(
                 canvas, kPoweredErrorRefreshMs, last_user_activity_ms);
             if (input_result == PrayerInputResult::SettingsRequested) {
-                restart_after_settings(canvas, settings, false);
+                if (run_settings(canvas, settings, false)) {
+                    s_last_time_sync_date = 0U;
+                }
+                last_user_activity_ms = monotonic_ms();
+                continue;
             }
             if (input_result == PrayerInputResult::RefreshRequested) {
                 continue;
@@ -491,7 +504,11 @@ uint64_t sleep_interval_us(const PrayerNext &next,
             static_cast<uint32_t>(sleep_us / 1000ULL),
             last_user_activity_ms);
         if (input_result == PrayerInputResult::SettingsRequested) {
-            restart_after_settings(canvas, settings, false);
+            if (run_settings(canvas, settings, false)) {
+                s_last_time_sync_date = 0U;
+            }
+            last_user_activity_ms = monotonic_ms();
+            continue;
         }
         if (input_result == PrayerInputResult::RefreshRequested) {
             continue;

@@ -265,7 +265,6 @@ DeviceSettingsResult device_settings_run(Canvas &canvas,
             if (validate_and_save(settings, state)) {
                 STICKY_LOGI(kTag,
                             "settings=swipe direction=down_from_top result=save_and_close");
-                sticky_touch_stop();
                 return DeviceSettingsResult::Saved;
             }
             refresh(canvas, settings, state);
@@ -304,14 +303,12 @@ DeviceSettingsResult device_settings_run(Canvas &canvas,
             return DeviceSettingsResult::WifiRequested;
         case DeviceSettingsActionType::Save:
             if (validate_and_save(settings, state)) {
-                sticky_touch_stop();
                 return DeviceSettingsResult::Saved;
             }
             break;
         case DeviceSettingsActionType::Cancel:
             if (!first_time) {
                 settings = original;
-                sticky_touch_stop();
                 return DeviceSettingsResult::Cancelled;
             }
             break;

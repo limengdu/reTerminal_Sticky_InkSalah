@@ -41,6 +41,20 @@ def main() -> None:
         "StickyVerticalSwipe::DownFromTop" in settings_source,
         "Native settings must close with a downward edge swipe.",
     )
+    require(
+        "restart_after_settings" not in app_source,
+        "Closing native settings must return to the schedule without restarting.",
+    )
+    require(
+        '"settings=closed result=%s mode=in_place timezone_changed=%d"'
+        in app_source,
+        "The in-place settings exit must remain visible in runtime logs.",
+    )
+    require(
+        "sticky_touch_stop();\n                return DeviceSettingsResult::Saved;"
+        not in settings_source,
+        "Saving settings must keep the active touch task available to the schedule.",
+    )
 
 
 if __name__ == "__main__":

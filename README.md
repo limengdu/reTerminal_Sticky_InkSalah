@@ -115,6 +115,8 @@ power=deep_sleep wake_button=4 wake_orientation=7 orientation_enabled=1 wake_tou
 
 重新启动时，`wake_source` 会显示 `timer`、`button` 或 `orientation`。设备醒着时会看到 `input=active idle_timeout_ms=180000`，表示触摸和姿态正在持续监听。无操作满三分钟时会记录 `input=inactive reason=idle_timeout idle_ms=180000 result=sleep`，随后进入深度睡眠。
 
+设备原生设置保存或取消后会直接返回礼拜页面，并记录 `settings=closed ... mode=in_place`。仅当时区发生变化时，设备才会在重绘前重新同步网络时间。
+
 一句话总结：主控醒来算三天、画一屏，然后把计时和转动检测交给低功耗硬件。
 
 ## 代码结构
