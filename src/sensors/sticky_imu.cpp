@@ -10,7 +10,6 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "pin_config.h"
-#include "sticky_shake_detector.h"
 
 namespace {
 
@@ -34,7 +33,7 @@ constexpr uint8_t kAccelerometer12Hz2g = 0x10;
 constexpr uint8_t kAccelerometerLowPowerMode = 0x10;
 constexpr uint8_t kActiveLowAutoIncrement = 0x24;
 constexpr uint8_t kBasicInterruptsLatched = 0x81;
-constexpr uint8_t kFourDimension60DegreeThreshold = 0xC0;
+constexpr uint8_t kFourDimension70DegreeThreshold = 0xA0;
 constexpr uint8_t kRouteOrientationToInterrupt1 = 0x04;
 constexpr uint8_t kOrientationInterruptDetected = 0x40;
 constexpr float kAccelerationScaleG = 0.000061F;
@@ -42,11 +41,11 @@ constexpr float kOrientationThresholdG = 0.70F;
 
 // Placement thresholds operate on the measured gravity vector in g.
 // 放稳状态阈值使用以g为单位的重力向量。
-constexpr float kMotionStartDeltaG = 0.10F;
+constexpr float kMotionStartDeltaG = 0.18F;
 constexpr float kQuietVectorDeltaG = 0.05F;
 constexpr float kQuietMagnitudeMinG = 0.75F;
 constexpr float kQuietMagnitudeMaxG = 1.25F;
-constexpr int kSettleSampleCount = 10;
+constexpr int kSettleSampleCount = 5;
 constexpr TickType_t kPollInterval = pdMS_TO_TICKS(100);
 constexpr uint32_t kTaskStackSize = 3072;
 constexpr UBaseType_t kTaskPriority = 4;
@@ -57,10 +56,6 @@ std::atomic<bool> s_stop_requested{false};
 std::atomic<bool> s_monitor_running{false};
 portMUX_TYPE s_state_lock = portMUX_INITIALIZER_UNLOCKED;
 StickyImuState s_latest_state = {};
-bool s_shake_started_event_pending = false;
-bool s_shake_stopped_event_pending = false;
-bool s_shake_session_active = false;
-uint32_t s_shake_session_duration_ms = 0U;
 
 // Holds one complete movement session from the last settled pose to the next.
 // 保存从上一次放稳姿态到下一次放稳姿态的一整段移动过程。
@@ -198,10 +193,14 @@ void begin_motion(PlacementTracker &tracker,
     tracker.moving = true;
     tracker.motion_started_at = xTaskGetTickCount();
     reset_quiet_candidate(tracker, sample);
-    STICKY_LOGI(kTag,
+#if STICKY_LOG_MOTION_SAMPLES_ENABLED
+    STICKY_LOGD(kTag,
                 "imu=motion state=moving from=%s delta_g=%.3f",
                 sticky_imu_orientation_name(tracker.settled_orientation),
                 static_cast<double>(delta_g));
+#else
+    (void)delta_g;
+#endif
 }
 
 void commit_settled_placement(PlacementTracker &tracker,
@@ -218,7 +217,8 @@ void commit_settled_placement(PlacementTracker &tracker,
     tracker.settled_reference = sample;
     tracker.has_settled_reference = true;
     tracker.moving = false;
-    STICKY_LOGI(kTag,
+#if STICKY_LOG_MOTION_SAMPLES_ENABLED
+    STICKY_LOGD(kTag,
                 "imu=placement state=settled from=%s to=%s motion_ms=%lu quiet_samples=%d x_g=%.3f y_g=%.3f z_g=%.3f",
                 sticky_imu_orientation_name(previous),
                 sticky_imu_orientation_name(tracker.settled_orientation),
@@ -227,15 +227,18 @@ void commit_settled_placement(PlacementTracker &tracker,
                 static_cast<double>(sample.acceleration_x_g),
                 static_cast<double>(sample.acceleration_y_g),
                 static_cast<double>(sample.acceleration_z_g));
+#else
+    (void)previous;
+    (void)motion_ms;
+#endif
 }
 
 void update_fast_orientation_stability(PlacementTracker &tracker,
-                                       StickyImuState &sample,
-                                       bool shake_activity)
+                                       StickyImuState &sample)
 {
-    // Counts a fresh quiet window and restarts it around every shake session.
-    // 统计一段全新的安静窗口，并在每次摇晃会话前后重新计数。
-    if (shake_activity || !is_quiet_sample(sample)) {
+    // Counts a fresh quiet window for confirmed orientation changes.
+    // 为确认后的姿态变化统计一段全新的安静窗口。
+    if (!is_quiet_sample(sample)) {
         tracker.fast_quiet_candidate = StickyImuOrientation::Unknown;
         tracker.fast_quiet_anchor = sample;
         tracker.fast_quiet_sample_count = 0U;
@@ -252,11 +255,10 @@ void update_fast_orientation_stability(PlacementTracker &tracker,
 }
 
 void update_placement(PlacementTracker &tracker,
-                      StickyImuState &sample,
-                      bool shake_activity)
+                      StickyImuState &sample)
 {
     sample.observed_orientation = sample.orientation;
-    update_fast_orientation_stability(tracker, sample, shake_activity);
+    update_fast_orientation_stability(tracker, sample);
     // Compares each sample with the last committed pose and current quiet window.
     // 将每次采样与上次已提交姿态及当前安静窗口进行比较。
     const float reference_delta = tracker.has_settled_reference
@@ -355,61 +357,13 @@ void store_state(const StickyImuState &state)
 void monitor_task(void *)
 {
     PlacementTracker tracker = {};
-    StickyShakeDetectorState shake_detector = {};
     TickType_t next_read = xTaskGetTickCount();
 
     while (!s_stop_requested.load(std::memory_order_acquire)) {
         StickyImuState sample = {};
         const esp_err_t result = read_acceleration(sample);
         if (result == ESP_OK) {
-            const uint32_t now_ms = static_cast<uint32_t>(
-                pdTICKS_TO_MS(xTaskGetTickCount()));
-            const StickyShakeDetectorResult shake =
-                sticky_shake_detector_update(shake_detector,
-                                             sample.acceleration_x_g,
-                                             sample.acceleration_y_g,
-                                             sample.acceleration_z_g,
-                                             now_ms);
-            if (shake.session_started || shake.session_active ||
-                shake.session_stopped) {
-                taskENTER_CRITICAL(&s_state_lock);
-                s_shake_session_duration_ms = shake.active_duration_ms;
-                taskEXIT_CRITICAL(&s_state_lock);
-            }
-            if (shake.peak) {
-                STICKY_LOGD(kTag,
-                            "imu=shake state=peak active=%d candidate_count=%u duration_ms=%u delta_g=%.3f",
-                            shake.session_active,
-                            static_cast<unsigned>(
-                                shake.candidate_peak_count),
-                            static_cast<unsigned>(
-                                shake.active_duration_ms),
-                            static_cast<double>(shake.delta_g));
-            }
-            if (shake.session_started) {
-                taskENTER_CRITICAL(&s_state_lock);
-                s_shake_started_event_pending = true;
-                s_shake_session_active = true;
-                taskEXIT_CRITICAL(&s_state_lock);
-                STICKY_LOGI(kTag,
-                            "imu=shake state=started delta_g=%.3f result=ok",
-                            static_cast<double>(shake.delta_g));
-            }
-            if (shake.session_stopped) {
-                taskENTER_CRITICAL(&s_state_lock);
-                s_shake_stopped_event_pending = true;
-                s_shake_session_active = false;
-                taskEXIT_CRITICAL(&s_state_lock);
-                STICKY_LOGI(kTag,
-                            "imu=shake state=stopped duration_ms=%u reason=quiet result=ok",
-                            static_cast<unsigned>(
-                                shake.active_duration_ms));
-            }
-            update_placement(tracker,
-                             sample,
-                             shake.session_started ||
-                                 shake.session_active ||
-                                 shake.session_stopped);
+            update_placement(tracker, sample);
             store_state(sample);
         } else {
             STICKY_LOGE(kTag,
@@ -422,10 +376,6 @@ void monitor_task(void *)
 
     taskENTER_CRITICAL(&s_state_lock);
     s_latest_state = {};
-    s_shake_started_event_pending = false;
-    s_shake_stopped_event_pending = false;
-    s_shake_session_active = false;
-    s_shake_session_duration_ms = 0U;
     taskEXIT_CRITICAL(&s_state_lock);
     s_monitor_task = nullptr;
     s_monitor_running.store(false, std::memory_order_release);
@@ -515,10 +465,6 @@ esp_err_t sticky_imu_start_monitoring()
 
     taskENTER_CRITICAL(&s_state_lock);
     s_latest_state = {};
-    s_shake_started_event_pending = false;
-    s_shake_stopped_event_pending = false;
-    s_shake_session_active = false;
-    s_shake_session_duration_ms = 0U;
     taskEXIT_CRITICAL(&s_state_lock);
     s_stop_requested.store(false, std::memory_order_release);
 
@@ -533,7 +479,7 @@ esp_err_t sticky_imu_start_monitoring()
     }
     s_monitor_running.store(true, std::memory_order_release);
     STICKY_LOGI(kTag,
-                "imu=monitoring interval_ms=100 settle_samples=%d motion_delta_g=%.2f quiet_delta_g=%.2f shake_mode=continuous raw_samples=%d result=ok",
+                "imu=monitoring interval_ms=100 settle_samples=%d motion_delta_g=%.2f quiet_delta_g=%.2f raw_samples=%d result=ok",
                 kSettleSampleCount,
                 static_cast<double>(kMotionStartDeltaG),
                 static_cast<double>(kQuietVectorDeltaG),
@@ -599,7 +545,7 @@ esp_err_t sticky_imu_prepare_orientation_wakeup()
     }
     if (result == ESP_OK) {
         result = write_register(kTapThreshold6dRegister,
-                                kFourDimension60DegreeThreshold);
+                                kFourDimension70DegreeThreshold);
     }
     if (result == ESP_OK) {
         result = write_register(kTapConfigRegister,
@@ -640,43 +586,9 @@ esp_err_t sticky_imu_prepare_orientation_wakeup()
     }
 
     STICKY_LOGI(kTag,
-                "imu=wakeup state=armed mode=4d threshold_degrees=60 accelerometer_hz=12.5 interrupt_pin=%d active_level=low result=ok",
+                "imu=wakeup state=armed mode=4d threshold_degrees=70 accelerometer_hz=12.5 interrupt_pin=%d active_level=low result=ok",
                 PIN_IMU_INT);
     return ESP_OK;
-}
-
-bool sticky_imu_take_shake_started_event()
-{
-    taskENTER_CRITICAL(&s_state_lock);
-    const bool pending = s_shake_started_event_pending;
-    s_shake_started_event_pending = false;
-    taskEXIT_CRITICAL(&s_state_lock);
-    return pending;
-}
-
-bool sticky_imu_take_shake_stopped_event()
-{
-    taskENTER_CRITICAL(&s_state_lock);
-    const bool pending = s_shake_stopped_event_pending;
-    s_shake_stopped_event_pending = false;
-    taskEXIT_CRITICAL(&s_state_lock);
-    return pending;
-}
-
-bool sticky_imu_is_shaking()
-{
-    taskENTER_CRITICAL(&s_state_lock);
-    const bool active = s_shake_session_active;
-    taskEXIT_CRITICAL(&s_state_lock);
-    return active;
-}
-
-uint32_t sticky_imu_shake_duration_ms()
-{
-    taskENTER_CRITICAL(&s_state_lock);
-    const uint32_t duration_ms = s_shake_session_duration_ms;
-    taskEXIT_CRITICAL(&s_state_lock);
-    return duration_ms;
 }
 
 const char *sticky_imu_orientation_name(StickyImuOrientation orientation)

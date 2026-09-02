@@ -20,6 +20,7 @@
 #include "time_sync.h"
 #include "wifi_service.h"
 
+#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
@@ -28,6 +29,7 @@ namespace {
 constexpr char kTag[] = "device_settings";
 constexpr uint32_t kConnectTimeoutMs = 16000U;
 constexpr uint32_t kTimeSyncTimeoutMs = 12000U;
+constexpr uint32_t kTransitionCleanupQuietMs = 1200U;
 
 void set_status(DeviceSettingsUiState &state, const char *message)
 {
@@ -35,16 +37,17 @@ void set_status(DeviceSettingsUiState &state, const char *message)
                   message == nullptr ? "" : message);
 }
 
-void refresh(Canvas &canvas,
-             const SalahSettings &settings,
-             const DeviceSettingsUiState &state,
-             bool full = false)
+uint32_t refresh(Canvas &canvas,
+                 const SalahSettings &settings,
+                 const DeviceSettingsUiState &state,
+                 bool full = false)
 {
     prayer_settings_render(canvas, settings, state);
     if (!full) {
         sticky_display_prepare_app_transition_refresh();
     }
     sticky_display_refresh_monochrome();
+    return static_cast<uint32_t>(esp_timer_get_time() / 1000LL);
 }
 
 void copy_text(char *destination, size_t capacity, const char *source)
@@ -281,7 +284,7 @@ DeviceSettingsResult device_settings_run(Canvas &canvas,
     }
     sticky_touch_clear_press();
     state.page = DeviceSettingsPage::Main;
-    refresh(canvas, settings, state, true);
+    uint32_t last_ui_change_ms = refresh(canvas, settings, state);
 
     // Keeps the native menu open until the user chooses a terminal action.
     // 原生设置菜单保持打开，直到用户主动选择保存、取消或配网。
@@ -307,7 +310,7 @@ DeviceSettingsResult device_settings_run(Canvas &canvas,
                     STICKY_LOGI(kTag,
                                 "settings=swipe direction=right_from_left result=back");
                 }
-                refresh(canvas, settings, state);
+                last_ui_change_ms = refresh(canvas, settings, state);
                 continue;
             }
             if (validate_and_save(settings, state)) {
@@ -315,11 +318,19 @@ DeviceSettingsResult device_settings_run(Canvas &canvas,
                             "settings=swipe direction=down_from_top result=save_and_close");
                 return DeviceSettingsResult::Saved;
             }
-            refresh(canvas, settings, state);
+            last_ui_change_ms = refresh(canvas, settings, state);
             continue;
         }
         StickyTouchPress press = {};
         if (!sticky_touch_take_press(press)) {
+            const uint32_t now_ms = static_cast<uint32_t>(
+                esp_timer_get_time() / 1000LL);
+            const uint32_t quiet_since_ms = std::max(
+                last_ui_change_ms, sticky_touch_last_activity_ms());
+            if (sticky_display_transition_cleanup_pending() &&
+                now_ms - quiet_since_ms >= kTransitionCleanupQuietMs) {
+                sticky_display_refresh_transition_cleanup();
+            }
             vTaskDelay(pdMS_TO_TICKS(20));
             continue;
         }
@@ -460,6 +471,6 @@ DeviceSettingsResult device_settings_run(Canvas &canvas,
         default:
             break;
         }
-        refresh(canvas, settings, state);
+        last_ui_change_ms = refresh(canvas, settings, state);
     }
 }

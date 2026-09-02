@@ -31,6 +31,7 @@ uint8_t *s_framebuffer = nullptr;
 uint8_t *s_rotated_framebuffer = nullptr;
 Canvas *s_canvas = nullptr;
 std::atomic<bool> s_fast_app_refresh_armed{false};
+std::atomic<bool> s_transition_cleanup_pending{false};
 std::atomic<bool> s_battery_overlay_enabled{true};
 std::atomic<bool> s_battery_overlay_sleep_layout{false};
 uint8_t s_fast_app_transition_count = 0U;
@@ -285,6 +286,10 @@ esp_err_t sticky_display_refresh_monochrome()
     if (fast_refresh) {
         STICKY_LOGI(kTag, "display=refresh_begin mode=monochrome_fast");
         const esp_err_t result = sticky_display_refresh_partial();
+        if (result == ESP_OK) {
+            s_transition_cleanup_pending.store(true,
+                                               std::memory_order_release);
+        }
         STICKY_LOGI(kTag,
                     "display=refresh_done mode=monochrome_fast elapsed_ms=%lld result=%s",
                     static_cast<long long>(
@@ -307,6 +312,11 @@ esp_err_t sticky_display_refresh_monochrome()
         kMonochromeStride,
         SEEED_EPAPER_PIXEL_FORMAT_MONO1_MSB,
         SEEED_EPAPER_REFRESH_FULL);
+    if (result == ESP_OK) {
+        s_transition_cleanup_pending.store(false,
+                                           std::memory_order_release);
+        s_fast_app_transition_count = 0U;
+    }
     STICKY_LOGI(kTag,
                 "display=refresh_done mode=monochrome_full elapsed_ms=%lld result=%s",
                 static_cast<long long>((esp_timer_get_time() - refresh_started_us) / 1000),
@@ -332,6 +342,26 @@ bool sticky_display_prepare_app_transition_refresh()
                 static_cast<unsigned>(s_fast_app_transition_count),
                 static_cast<unsigned>(kFastAppTransitionsBeforeCleanup));
     return true;
+}
+
+bool sticky_display_transition_cleanup_pending()
+{
+    return s_transition_cleanup_pending.load(std::memory_order_acquire);
+}
+
+esp_err_t sticky_display_refresh_transition_cleanup()
+{
+    if (!sticky_display_transition_cleanup_pending()) {
+        return ESP_OK;
+    }
+    s_fast_app_refresh_armed.store(false, std::memory_order_release);
+    STICKY_LOGI(kTag,
+                "display=transition_cleanup mode=full state=begin");
+    const esp_err_t result = sticky_display_refresh_monochrome();
+    STICKY_LOGI(kTag,
+                "display=transition_cleanup mode=full state=done result=%s",
+                esp_err_to_name(result));
+    return result;
 }
 
 void sticky_display_cancel_app_transition_refresh()

@@ -35,6 +35,15 @@ esp_err_t sticky_display_refresh_monochrome();
 // 为APP首帧安排快刷，并定期保留一次全刷清理屏幕。
 bool sticky_display_prepare_app_transition_refresh();
 
+// Reports whether a fast transition frame still needs a full cleanup refresh.
+// 返回快速切换画面是否仍需进行一次完整清理刷新。
+bool sticky_display_transition_cleanup_pending();
+
+// Cleans the current unchanged frame with a full waveform after interaction
+// becomes idle. Returns immediately when no cleanup is pending.
+// 交互空闲后用全刷波形清理当前画面；没有待清理画面时立即返回。
+esp_err_t sticky_display_refresh_transition_cleanup();
+
 // Cancels an armed transition refresh when app activation cannot continue.
 // 当APP无法继续启动时，取消已安排的过渡刷新。
 void sticky_display_cancel_app_transition_refresh();

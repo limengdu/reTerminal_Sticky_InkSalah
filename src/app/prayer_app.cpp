@@ -36,9 +36,10 @@ namespace {
 constexpr char kTag[] = "prayer_app";
 constexpr uint32_t kNetworkTimeoutMs = 16000U;
 constexpr uint32_t kTimeSyncTimeoutMs = 12000U;
-constexpr TickType_t kOrientationSettle = pdMS_TO_TICKS(1300);
+constexpr TickType_t kOrientationSettle = pdMS_TO_TICKS(650);
 constexpr uint64_t kErrorRetryUs = 5ULL * 60ULL * 1000000ULL;
 constexpr uint32_t kPoweredErrorRefreshMs = 60000U;
+constexpr uint32_t kTransitionCleanupQuietMs = 1200U;
 
 RTC_DATA_ATTR uint32_t s_last_time_sync_date = 0U;
 RTC_DATA_ATTR uint8_t s_last_rotation =
@@ -287,9 +288,6 @@ PrayerInputResult wait_for_prayer_input(Canvas &canvas,
             StickyImuState imu_state = {};
             if (sticky_imu_get_state(imu_state) == ESP_OK &&
                 imu_state.valid) {
-                if (imu_state.moving) {
-                    last_user_activity_ms = now_ms;
-                }
                 if (imu_state.orientation ==
                     StickyImuOrientation::Unknown) {
                     vTaskDelay(pdMS_TO_TICKS(20));
@@ -313,6 +311,16 @@ PrayerInputResult wait_for_prayer_input(Canvas &canvas,
         }
 
         now_ms = monotonic_ms();
+        const uint32_t latest_touch_activity_ms =
+            sticky_touch_last_activity_ms();
+        if (sticky_display_transition_cleanup_pending() &&
+            prayer_input_elapsed_ms(
+                now_ms,
+                std::max(started_ms, latest_touch_activity_ms)) >=
+                kTransitionCleanupQuietMs) {
+            sticky_display_refresh_transition_cleanup();
+            continue;
+        }
         const uint32_t refresh_elapsed_ms =
             prayer_input_elapsed_ms(now_ms, started_ms);
         const uint32_t idle_elapsed_ms =
@@ -364,6 +372,10 @@ bool run_settings(Canvas &canvas,
                 "settings=closed result=%s mode=in_place timezone_changed=%d",
                 result == DeviceSettingsResult::Saved ? "saved" : "cancelled",
                 timezone_changed);
+    if (result == DeviceSettingsResult::Saved ||
+        result == DeviceSettingsResult::Cancelled) {
+        sticky_display_prepare_app_transition_refresh();
+    }
     return timezone_changed;
 }
 
@@ -446,9 +458,12 @@ uint64_t sleep_interval_us(const PrayerNext &next,
 
     const bool woke_from_deep_sleep =
         esp_sleep_get_wakeup_cause() != ESP_SLEEP_WAKEUP_UNDEFINED;
+    const bool woke_from_orientation =
+        board_power_woke_from_orientation();
     bool first_cycle = true;
     uint32_t last_user_activity_ms = 0U;
     while (true) {
+        const bool initial_cycle = first_cycle;
         StickyRtcDateTime now = {};
         const bool rtc_ready = current_time(now);
         const bool daily_sync_due = rtc_ready &&
@@ -499,7 +514,18 @@ uint64_t sleep_interval_us(const PrayerNext &next,
             enter_deep_sleep(canvas, kErrorRetryUs);
         }
 
-        canvas.set_rotation(detect_rotation());
+        const CanvasRotation previous_rotation =
+            static_cast<CanvasRotation>(s_last_rotation);
+        const CanvasRotation detected_rotation = detect_rotation();
+        if (initial_cycle && woke_from_orientation &&
+            detected_rotation == previous_rotation) {
+            const uint64_t retry_sleep_us = sleep_interval_us(next, now);
+            STICKY_LOGI(kTag,
+                        "input=orientation_wakeup state=unchanged rotation=%u result=resleep",
+                        static_cast<unsigned>(detected_rotation));
+            enter_deep_sleep(canvas, retry_sleep_us);
+        }
+        canvas.set_rotation(detected_rotation);
         sticky_display_set_battery_overlay_enabled(true);
         PrayerPageModel model = {};
         model.settings = &settings;

@@ -192,6 +192,13 @@ esp_err_t board_power_init()
     return ESP_OK;
 }
 
+bool board_power_woke_from_orientation()
+{
+    return esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_EXT1 &&
+           (esp_sleep_get_ext1_wakeup_status() &
+            (1ULL << PIN_IMU_INT)) != 0U;
+}
+
 
 [[noreturn]] void board_power_enter_deep_sleep(
     uint64_t timer_wakeup_us,

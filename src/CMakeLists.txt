@@ -30,7 +30,6 @@ idf_component_register(
         "prayer/prayer_calculator.cpp"
         "prayer/prayer_time.cpp"
         "sensors/sticky_imu.cpp"
-        "sensors/sticky_shake_detector.cpp"
         "services/http_retry_policy.cpp"
         "services/network_location.cpp"
         "storage/settings_model.cpp"
