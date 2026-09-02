@@ -6,6 +6,7 @@
 #include "canvas.h"
 #include "prayer_pages.h"
 #include "prayer_settings_pages.h"
+#include "sleep_indicator.h"
 
 namespace {
 
@@ -49,7 +50,7 @@ int main(int argc, char **argv)
 {
     if (argc != 4) {
         std::fprintf(stderr,
-                     "Usage: render_ui_preview <landscape|portrait> <schedule|setup|error|settings-main|settings-main-first-time|settings-location|settings-calculation|settings-adjustments> <output.pgm>\n");
+                     "Usage: render_ui_preview <landscape|portrait> <schedule|schedule-sleep|setup|error|settings-main|settings-main-first-time|settings-location|settings-calculation|settings-adjustments> <output.pgm>\n");
         return 2;
     }
     const bool portrait = std::strcmp(argv[1], "portrait") == 0;
@@ -97,7 +98,8 @@ int main(int argc, char **argv)
         prayer_page_render_error(canvas,
                                  "SETUP UNAVAILABLE",
                                  "RESTART THE DEVICE");
-    } else if (std::strcmp(argv[2], "schedule") == 0) {
+    } else if (std::strcmp(argv[2], "schedule") == 0 ||
+               std::strcmp(argv[2], "schedule-sleep") == 0) {
         SalahSettings settings = {};
         settings_store_defaults(settings);
         settings.configured = true;
@@ -115,6 +117,9 @@ int main(int argc, char **argv)
         model.current_minutes = 921U;
         model.online = false;
         prayer_page_render_schedule(canvas, model);
+        if (std::strcmp(argv[2], "schedule-sleep") == 0) {
+            sleep_indicator_render(canvas);
+        }
     } else {
         std::fprintf(stderr, "Unknown page: %s\n", argv[2]);
         return 2;

@@ -128,6 +128,11 @@ compile_and_run prayer_settings_pages_test \
     src/ui/islamic_setup_background_asset.cpp \
     src/ui/canvas.cpp src/ui/font.cpp src/ui/prayer_settings_pages.cpp
 
+compile_and_run sleep_indicator_test \
+    -Isrc/ui \
+    test/sleep_indicator_test.cpp \
+    src/ui/canvas.cpp src/ui/font.cpp src/ui/sleep_indicator.cpp
+
 compile_and_run display_orientation_test \
     -Isrc/app -Isrc/sensors -Isrc/ui \
     test/display_orientation_test.cpp \
@@ -167,4 +172,4 @@ compile_and_run location_catalog_test \
     test/location_catalog_test.cpp \
     src/location/location_catalog.cpp
 
-echo "[host-test] PASS ${passed_count}/23"
+echo "[host-test] PASS ${passed_count}/24"

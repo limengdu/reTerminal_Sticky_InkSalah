@@ -20,7 +20,7 @@ Sticky Salah 是面向 Seeed Studio reTerminal Sticky 的原生穆斯林礼拜�
 - 地点支持设备联网自动估算和触摸屏手动经纬度两种入口；UTC 偏移可按 15 分钟或 1 小时调整。
 - 联网时仅校准系统时间与板载 RTC；网络位置估算为可选功能。礼拜时间的日常计算可离线完成。
 - 设备醒来后由 GT911 触摸和 IMU 持续监听，底部上滑可随时打开设置，转动设备会立即重排页面。
-- 任意触摸或转动都会重新计时；连续 3 分钟无操作后进入深度睡眠，由定时器、顶部按键或 IMU 姿态变化唤醒。
+- 任意触摸或转动都会重新计时；连续 3 分钟无操作后，左上角显示小型弯月并进入深度睡眠，由定时器、顶部按键或 IMU 姿态变化唤醒。
 
 一句话总结：这是一台按太阳位置本地计算、能显示礼拜窗口的低功耗墨水屏礼拜时间牌。
 
@@ -173,9 +173,11 @@ python3 tools/preview_setup_portal.py --port 8769
 墨水屏预览器调用固件实际使用的画布和页面代码：
 
 ```bash
-g++ -std=c++17 -Isrc/prayer -Isrc/storage -Isrc/ui tools/render_ui_preview.cpp src/prayer/prayer_time.cpp src/storage/settings_model.cpp src/ui/arabic_prayer_assets.cpp src/ui/islamic_background_asset.cpp src/ui/islamic_landscape_background_asset.cpp src/ui/islamic_setup_background_asset.cpp src/ui/canvas.cpp src/ui/font.cpp src/ui/prayer_pages.cpp src/ui/prayer_settings_pages.cpp -o /tmp/sticky_salah_ui_preview
+g++ -std=c++17 -Isrc/prayer -Isrc/storage -Isrc/ui tools/render_ui_preview.cpp src/prayer/prayer_time.cpp src/storage/settings_model.cpp src/ui/arabic_prayer_assets.cpp src/ui/islamic_background_asset.cpp src/ui/islamic_landscape_background_asset.cpp src/ui/islamic_setup_background_asset.cpp src/ui/canvas.cpp src/ui/font.cpp src/ui/prayer_pages.cpp src/ui/prayer_settings_pages.cpp src/ui/sleep_indicator.cpp -o /tmp/sticky_salah_ui_preview
 /tmp/sticky_salah_ui_preview portrait schedule /tmp/sticky_salah_portrait.pgm
 /tmp/sticky_salah_ui_preview landscape schedule /tmp/sticky_salah_landscape.pgm
+/tmp/sticky_salah_ui_preview portrait schedule-sleep /tmp/sticky_salah_sleep_portrait.pgm
+/tmp/sticky_salah_ui_preview landscape schedule-sleep /tmp/sticky_salah_sleep_landscape.pgm
 /tmp/sticky_salah_ui_preview portrait setup /tmp/sticky_salah_setup.pgm
 /tmp/sticky_salah_ui_preview portrait settings-main /tmp/sticky_salah_settings.pgm
 /tmp/sticky_salah_ui_preview portrait settings-main-first-time /tmp/sticky_salah_first_time.pgm

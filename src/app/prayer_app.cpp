@@ -21,6 +21,7 @@
 #include "prayer_pages.h"
 #include "provisioning_portal.h"
 #include "settings_store.h"
+#include "sleep_indicator.h"
 #include "sticky_buzzer.h"
 #include "sticky_display.h"
 #include "sticky_imu.h"
@@ -85,7 +86,8 @@ CanvasRotation detect_rotation()
     return rotation;
 }
 
-[[noreturn]] void enter_deep_sleep(uint64_t timer_wakeup_us)
+[[noreturn]] void enter_deep_sleep(Canvas &canvas,
+                                   uint64_t timer_wakeup_us)
 {
     const esp_err_t imu_result =
         sticky_imu_prepare_orientation_wakeup();
@@ -101,6 +103,19 @@ CanvasRotation detect_rotation()
         STICKY_LOGW(kTag,
                     "sleep=touch state=stop_failed result=%s",
                     esp_err_to_name(touch_result));
+    }
+
+    sleep_indicator_render(canvas);
+    sticky_display_cancel_app_transition_refresh();
+    const esp_err_t indicator_result =
+        sticky_display_refresh_monochrome();
+    if (indicator_result != ESP_OK) {
+        STICKY_LOGW(kTag,
+                    "sleep=indicator position=top_left result=%s",
+                    esp_err_to_name(indicator_result));
+    } else {
+        STICKY_LOGI(kTag,
+                    "sleep=indicator position=top_left result=ok");
     }
 
     const esp_err_t display_result = sticky_display_sleep();
@@ -125,7 +140,7 @@ void show_setup(Canvas &canvas, const SalahSettings *existing_settings)
                                  "SETUP UNAVAILABLE",
                                  "RESTART THE DEVICE");
         sticky_display_refresh_monochrome();
-        enter_deep_sleep(kErrorRetryUs);
+        enter_deep_sleep(canvas, kErrorRetryUs);
     }
 
     canvas.set_rotation(salah_default_rotation());
@@ -143,7 +158,7 @@ void show_setup(Canvas &canvas, const SalahSettings *existing_settings)
                                  "SETUP UNAVAILABLE",
                                  "RESTART THE DEVICE");
         sticky_display_refresh_monochrome();
-        enter_deep_sleep(kErrorRetryUs);
+        enter_deep_sleep(canvas, kErrorRetryUs);
     }
     wifi_service_stop();
     vTaskDelay(pdMS_TO_TICKS(250));
@@ -340,7 +355,7 @@ bool run_settings(Canvas &canvas,
     if (result == DeviceSettingsResult::Failed) {
         // The settings flow already presents the specific hardware error.
         // 设置流程已经显示具体的硬件错误，此处直接等待自动重试。
-        enter_deep_sleep(kErrorRetryUs);
+        enter_deep_sleep(canvas, kErrorRetryUs);
     }
     const bool timezone_changed =
         result == DeviceSettingsResult::Saved &&
@@ -481,7 +496,7 @@ uint64_t sleep_interval_us(const PrayerNext &next,
             if (input_result == PrayerInputResult::RefreshRequested) {
                 continue;
             }
-            enter_deep_sleep(kErrorRetryUs);
+            enter_deep_sleep(canvas, kErrorRetryUs);
         }
 
         canvas.set_rotation(detect_rotation());
@@ -523,6 +538,6 @@ uint64_t sleep_interval_us(const PrayerNext &next,
         if (input_result == PrayerInputResult::RefreshRequested) {
             continue;
         }
-        enter_deep_sleep(sleep_us);
+        enter_deep_sleep(canvas, sleep_us);
     }
 }

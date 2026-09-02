@@ -45,6 +45,7 @@ idf_component_register(
         "ui/islamic_setup_background_asset.cpp"
         "ui/prayer_pages.cpp"
         "ui/prayer_settings_pages.cpp"
+        "ui/sleep_indicator.cpp"
     INCLUDE_DIRS
         "."
         "app"
