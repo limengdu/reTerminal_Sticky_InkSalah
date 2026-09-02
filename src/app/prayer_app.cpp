@@ -11,7 +11,6 @@
 #include "display_orientation.h"
 #include "esp_attr.h"
 #include "esp_sleep.h"
-#include "esp_system.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -176,10 +175,10 @@ bool setup_cancel_requested(void *context)
     return prayer_page_setup_back_action_at(x, y, true);
 }
 
-bool show_setup(Canvas &canvas, const SalahSettings *existing_settings)
+bool show_setup(Canvas &canvas, SalahSettings &settings)
 {
-    const bool can_return = existing_settings != nullptr &&
-                            settings_wifi_valid(*existing_settings);
+    const bool can_return = settings_wifi_valid(settings);
+    const SalahSettings *existing_settings = can_return ? &settings : nullptr;
     char ap_ssid[32] = {};
     const esp_err_t ap_result = wifi_service_start_setup_ap(
         ap_ssid, sizeof(ap_ssid));
@@ -197,7 +196,11 @@ bool show_setup(Canvas &canvas, const SalahSettings *existing_settings)
                              ap_ssid,
                              kStickySalahSetupPassword,
                              can_return);
-    sticky_display_refresh_monochrome();
+    if (can_return) {
+        sticky_display_refresh_partial();
+    } else {
+        sticky_display_refresh_monochrome();
+    }
 
     SetupCancelContext cancel_context = {&canvas};
     if (can_return) {
@@ -225,18 +228,12 @@ bool show_setup(Canvas &canvas, const SalahSettings *existing_settings)
         enter_deep_sleep(canvas, kErrorRetryUs);
     }
     wifi_service_stop();
-    if (can_return) {
-        sticky_touch_stop();
-    }
     if (portal_exit == ProvisioningPortalExit::Cancelled) {
         sticky_display_prepare_app_transition_refresh();
         return false;
     }
-    vTaskDelay(pdMS_TO_TICKS(250));
-    esp_restart();
-    while (true) {
-        vTaskDelay(portMAX_DELAY);
-    }
+    settings = saved;
+    sticky_display_prepare_app_transition_refresh();
     return true;
 }
 
@@ -430,7 +427,7 @@ bool run_settings(Canvas &canvas,
     do {
         result = device_settings_run(canvas, settings, first_time);
         if (result == DeviceSettingsResult::WifiRequested) {
-            show_setup(canvas, &settings);
+            show_setup(canvas, settings);
         }
     } while (result == DeviceSettingsResult::WifiRequested);
     if (result == DeviceSettingsResult::Failed) {
@@ -509,10 +506,11 @@ uint64_t sleep_interval_us(const PrayerNext &next,
     }
     SalahSettings settings = {};
     if (settings_store_load(settings) != ESP_OK) {
-        show_setup(canvas, nullptr);
+        settings_store_defaults(settings);
+        show_setup(canvas, settings);
     }
     if (!settings_wifi_valid(settings)) {
-        show_setup(canvas, nullptr);
+        show_setup(canvas, settings);
     }
     if (!settings.configured) {
         if (run_settings(canvas, settings, true)) {

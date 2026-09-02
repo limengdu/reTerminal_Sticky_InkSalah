@@ -20,7 +20,6 @@
 #include "time_sync.h"
 #include "wifi_service.h"
 
-#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
@@ -29,7 +28,6 @@ namespace {
 constexpr char kTag[] = "device_settings";
 constexpr uint32_t kConnectTimeoutMs = 16000U;
 constexpr uint32_t kTimeSyncTimeoutMs = 12000U;
-constexpr uint32_t kTransitionCleanupQuietMs = 1200U;
 
 void set_status(DeviceSettingsUiState &state, const char *message)
 {
@@ -37,17 +35,12 @@ void set_status(DeviceSettingsUiState &state, const char *message)
                   message == nullptr ? "" : message);
 }
 
-uint32_t refresh(Canvas &canvas,
-                 const SalahSettings &settings,
-                 const DeviceSettingsUiState &state,
-                 bool full = false)
+void refresh(Canvas &canvas,
+             const SalahSettings &settings,
+             const DeviceSettingsUiState &state)
 {
     prayer_settings_render(canvas, settings, state);
-    if (!full) {
-        sticky_display_prepare_app_transition_refresh();
-    }
-    sticky_display_refresh_monochrome();
-    return static_cast<uint32_t>(esp_timer_get_time() / 1000LL);
+    sticky_display_refresh_partial();
 }
 
 void copy_text(char *destination, size_t capacity, const char *source)
@@ -69,8 +62,7 @@ bool detect_location(SalahSettings &settings,
     const bool connection_was_active = wifi_service_is_connected();
     prayer_settings_render_loading(canvas, "DETECTING LOCATION",
                                    "USING SAVED WI-FI");
-    sticky_display_prepare_app_transition_refresh();
-    sticky_display_refresh_monochrome();
+    sticky_display_refresh_partial();
 
     if (wifi_service_connect(settings, kConnectTimeoutMs) != ESP_OK) {
         if (!connection_was_active) {
@@ -336,7 +328,7 @@ DeviceSettingsResult device_settings_run(Canvas &canvas,
     }
     sticky_touch_clear_press();
     state.page = DeviceSettingsPage::Main;
-    uint32_t last_ui_change_ms = refresh(canvas, settings, state);
+    refresh(canvas, settings, state);
 
     // Keeps the native menu open until the user chooses a terminal action.
     // 原生设置菜单保持打开，直到用户主动选择保存、取消或配网。
@@ -362,7 +354,7 @@ DeviceSettingsResult device_settings_run(Canvas &canvas,
                     STICKY_LOGI(kTag,
                                 "settings=swipe direction=right_from_left result=back");
                 }
-                last_ui_change_ms = refresh(canvas, settings, state);
+                refresh(canvas, settings, state);
                 continue;
             }
             if (validate_and_save(settings, state)) {
@@ -370,19 +362,11 @@ DeviceSettingsResult device_settings_run(Canvas &canvas,
                             "settings=swipe direction=down_from_top result=save_and_close");
                 return DeviceSettingsResult::Saved;
             }
-            last_ui_change_ms = refresh(canvas, settings, state);
+            refresh(canvas, settings, state);
             continue;
         }
         StickyTouchPress press = {};
         if (!sticky_touch_take_press(press)) {
-            const uint32_t now_ms = static_cast<uint32_t>(
-                esp_timer_get_time() / 1000LL);
-            const uint32_t quiet_since_ms = std::max(
-                last_ui_change_ms, sticky_touch_last_activity_ms());
-            if (sticky_display_transition_cleanup_pending() &&
-                now_ms - quiet_since_ms >= kTransitionCleanupQuietMs) {
-                sticky_display_refresh_transition_cleanup();
-            }
             vTaskDelay(pdMS_TO_TICKS(20));
             continue;
         }
@@ -410,7 +394,6 @@ DeviceSettingsResult device_settings_run(Canvas &canvas,
             break;
         case DeviceSettingsActionType::OpenWifi:
             settings = original;
-            sticky_touch_stop();
             return DeviceSettingsResult::WifiRequested;
         case DeviceSettingsActionType::Save:
             if (validate_and_save(settings, state)) {
@@ -573,6 +556,6 @@ DeviceSettingsResult device_settings_run(Canvas &canvas,
         default:
             break;
         }
-        last_ui_change_ms = refresh(canvas, settings, state);
+        refresh(canvas, settings, state);
     }
 }

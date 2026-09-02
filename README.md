@@ -83,7 +83,7 @@ pio device monitor --port /dev/cu.usbmodemXXXX --baud 115200
 1. 手机连接设备显示的 `Sticky-Salah-XXXX` 热点，密码为 `sticky-salah`。
 2. 手机通常会自动打开页面，也可以访问 `http://192.168.4.1`。
 3. Wi-Fi 页面会自动扫描附近网络；点击列表项后名称会进入可编辑输入框，隐藏网络也可直接手动输入。
-4. 点击 `Check and save`。联网与校时成功后，设备保存 Wi-Fi 并自动重启。
+4. 点击 `Check and save`。联网与校时成功后，设备保存 Wi-Fi，并直接回到设备原生设置继续操作。
 5. 设备屏幕自动进入 `SALAH SETTINGS` 原生触摸菜单，并先用公网出口 IP 估算城市、经纬度和 UTC 偏移。
 6. 进入 `LOCATION` 核对地点。点经纬度数值可打开数字键盘精确输入，左右按钮可按 0.1° 调整；时区支持 ±15 分钟和 ±1 小时。
 7. 进入 `CALCULATION`，在分页列表中选择计算机构或 Custom 规则，再选择 `Standard` 或 `Hanafi` Asr 规则。中国默认使用 `MWL + Hanafi`。
@@ -116,7 +116,7 @@ power=deep_sleep wake_button=4 wake_orientation=7 orientation_enabled=1 wake_tou
 
 重新启动时，`wake_source` 会显示 `timer`、`button` 或 `orientation`。设备醒着时会看到 `input=active idle_timeout_ms=180000`，表示触摸和姿态正在持续监听。无操作满三分钟时会记录 `input=inactive reason=idle_timeout idle_ms=180000 result=sleep`，随后进入深度睡眠。
 
-设备原生设置可从顶部向下滑来保存并关闭；从左侧边缘向页面中部滑动会返回上一级，并保留尚未保存的设置草稿。设置主页不会被左滑直接关闭。保存或取消后会直接返回礼拜页面，并记录 `settings=closed ... mode=in_place`。Wi-Fi 配网从日常设置进入时提供设备端返回按钮和左侧返回手势，返回后重新打开原生设置并保留原有 Wi-Fi。仅当时区发生变化时，设备才会在重绘前重新同步网络时间。
+设备原生设置可从顶部向下滑来保存并关闭；从左侧边缘向页面中部滑动会返回上一级，并保留尚未保存的设置草稿。设置主页不会被左滑直接关闭。设置页的触摸反馈统一使用电子纸快刷，不在交互停顿后追加全刷。保存或取消后会直接返回礼拜页面，并记录 `settings=closed ... mode=in_place`。Wi-Fi 配网从日常设置进入时提供设备端返回按钮和左侧返回手势，并复用原生设置已经运行的触摸任务：返回时保留原有 Wi-Fi，保存成功时应用新 Wi-Fi，两条路径都会原地重新打开设备设置。仅当时区发生变化时，设备才会在重绘前重新同步网络时间。
 
 Location 页面会使用已保存的 Wi-Fi 自动估算当前城市、国家、经纬度和时区，并覆盖之前手动填写的坐标。坐标键盘的 `DELETE` 清空全部输入，`BACK` 每次删除一个字符，`OK` 确认输入。
 

@@ -79,6 +79,29 @@ def main() -> None:
         and "result == DeviceSettingsResult::WifiRequested" in app_source,
         "Cancelling Wi-Fi setup must reopen native settings with saved values.",
     )
+    require(
+        "sticky_display_refresh_partial()" in settings_source
+        and "sticky_display_refresh_transition_cleanup" not in settings_source
+        and "sticky_display_transition_cleanup_pending" not in settings_source,
+        "Native settings interactions must use fast refresh without an idle full refresh.",
+    )
+    require(
+        "esp_restart();" not in app_source
+        and "settings = saved;" in app_source,
+        "Saving Wi-Fi must return the new credentials to native settings without restarting.",
+    )
+    require(
+        "case DeviceSettingsActionType::OpenWifi:\n"
+        "            settings = original;\n"
+        "            return DeviceSettingsResult::WifiRequested;"
+        in settings_source,
+        "Opening Wi-Fi setup must keep the active touch task and I2C bus alive.",
+    )
+    require(
+        "if (can_return) {\n        sticky_touch_stop();\n    }"
+        not in app_source,
+        "Returning from Wi-Fi setup must reuse the active touch task.",
+    )
 
 
 if __name__ == "__main__":
