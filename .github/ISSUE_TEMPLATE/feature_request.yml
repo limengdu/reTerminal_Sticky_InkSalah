@@ -1,0 +1,39 @@
+name: Feature request
+description: Propose a focused improvement to InkSalah.
+title: "[Feature]: "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: need
+    attributes:
+      label: User need
+      description: Describe the real situation or problem this feature should solve.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: Explain what the user should see and how they should interact with it.
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: References or evidence
+      description: Prayer-rule changes should include an authoritative source and exact parameters.
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope check
+      options:
+        - label: This request is specific to InkSalah and reTerminal Sticky.
+          required: true

@@ -90,6 +90,10 @@ echo "[host-test] imu_runtime_policy_test"
 python3 test/imu_runtime_policy_test.py
 passed_count=$((passed_count + 1))
 
+echo "[host-test] documentation_links_test"
+python3 test/documentation_links_test.py
+passed_count=$((passed_count + 1))
+
 compile_and_run prayer_time_test \
     -Isrc/prayer \
     test/prayer_time_test.cpp \
@@ -176,4 +180,4 @@ compile_and_run location_catalog_test \
     test/location_catalog_test.cpp \
     src/location/location_catalog.cpp
 
-echo "[host-test] PASS ${passed_count}/25"
+echo "[host-test] PASS ${passed_count}/26"

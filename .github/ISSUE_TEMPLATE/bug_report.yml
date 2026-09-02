@@ -1,0 +1,71 @@
+name: Bug report
+description: Report a reproducible firmware, calculation, display, or interaction problem.
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Thank you for helping improve InkSalah. Please remove credentials and personal network information from logs.
+
+  - type: input
+    id: version
+    attributes:
+      label: Firmware version or commit
+      placeholder: v0.1.0 or 24485d2
+    validations:
+      required: true
+
+  - type: dropdown
+    id: profile
+    attributes:
+      label: Build profile
+      options:
+        - sticky-salah-release
+        - sticky-salah-debug
+        - Unknown
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+      description: List the shortest sequence that consistently produces the issue.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: prayer-settings
+    attributes:
+      label: Prayer and location settings
+      description: For time differences, include date, coordinates, UTC offset, method, Asr school, minute adjustments, and comparison source.
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      render: text
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I searched existing issues for the same behavior.
+          required: true
+        - label: I removed passwords, private keys, tokens, and personal network information.
+          required: true
