@@ -1,10 +1,8 @@
 #include "prayer_schedule.h"
 
-#include <cstring>
-
 void prayer_schedule_clear(PrayerSchedule &schedule)
 {
-    std::memset(&schedule, 0, sizeof(schedule));
+    schedule = {};
 }
 
 bool prayer_schedule_add(PrayerSchedule &schedule, const PrayerDay &day)
