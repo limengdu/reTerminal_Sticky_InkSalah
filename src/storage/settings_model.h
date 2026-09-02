@@ -50,6 +50,7 @@ struct SalahSettings {
     uint16_t custom_fajr_angle_tenths = 180U;
     uint16_t custom_isha_angle_tenths = 170U;
     uint16_t custom_isha_interval_minutes = 90U;
+    bool qiyam_visible = true;
 };
 
 void settings_store_defaults(SalahSettings &settings);

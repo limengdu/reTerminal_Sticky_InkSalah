@@ -50,7 +50,7 @@ int main(int argc, char **argv)
 {
     if (argc != 4) {
         std::fprintf(stderr,
-                     "Usage: render_ui_preview <landscape|portrait> <schedule|schedule-sleep|setup|setup-return|error|settings-main|settings-main-first-time|settings-location|settings-calculation|settings-methods|settings-custom|settings-adjustments> <output.pgm>\n");
+                     "Usage: render_ui_preview <landscape|portrait> <schedule|schedule-no-qiyam|schedule-sleep|setup|setup-return|error|settings-main|settings-main-first-time|settings-location|settings-calculation|settings-methods|settings-custom|settings-adjustments> <output.pgm>\n");
         return 2;
     }
     const bool portrait = std::strcmp(argv[1], "portrait") == 0;
@@ -107,6 +107,7 @@ int main(int argc, char **argv)
                                  "SETUP UNAVAILABLE",
                                  "RESTART THE DEVICE");
     } else if (std::strcmp(argv[2], "schedule") == 0 ||
+               std::strcmp(argv[2], "schedule-no-qiyam") == 0 ||
                std::strcmp(argv[2], "schedule-sleep") == 0) {
         SalahSettings settings = {};
         settings_store_defaults(settings);
@@ -116,6 +117,8 @@ int main(int argc, char **argv)
         std::strcpy(settings.city, "Shenzhen");
         settings.calculation_method = 3U;
         settings.asr_school = 1U;
+        settings.qiyam_visible =
+            std::strcmp(argv[2], "schedule-no-qiyam") != 0;
         PrayerDay today = sample_day();
         PrayerPageModel model = {};
         model.settings = &settings;

@@ -25,6 +25,12 @@ def main() -> None:
     device_settings = (
         project_root / "src" / "app" / "device_settings.cpp"
     ).read_text(encoding="utf-8")
+    settings_store = (
+        project_root / "src" / "storage" / "settings_store.cpp"
+    ).read_text(encoding="utf-8")
+    prayer_pages = (
+        project_root / "src" / "ui" / "prayer_pages.cpp"
+    ).read_text(encoding="utf-8")
 
     require(
         "prayer/prayer_calculator.cpp" in component,
@@ -60,6 +66,16 @@ def main() -> None:
         and "prayer_settings_action_at" in device_settings
         and "settings_store_save" in device_settings,
         "Prayer settings must run as a native touch flow and persist locally.",
+    )
+    require(
+        "ToggleQiyamDisplay" in device_settings
+        and "qiyam_visible" in prayer_pages,
+        "The native setting must control every displayed Qiyam element.",
+    )
+    require(
+        "constexpr uint16_t kVersion = 5U" in settings_store
+        and "migrate_v4_settings" in settings_store,
+        "Version-4 settings must migrate with Qiyam visible by default.",
     )
 
 

@@ -133,6 +133,24 @@ void row(Canvas &canvas,
                      selected ? GrayLevel::White : GrayLevel::Black);
 }
 
+void main_row(Canvas &canvas,
+              int y,
+              const char *title,
+              const char *value)
+{
+    constexpr int kHeight = 64;
+    canvas.fill_rect(34, y, 412, kHeight, GrayLevel::White);
+    canvas.draw_rect(34, y, 412, kHeight, GrayLevel::Black);
+    canvas.draw_text(50, y + 9, title, 2,
+                     GrayLevel::Black, TextWeight::Bold);
+    if (value != nullptr && value[0] != '\0') {
+        char fitted[32] = {};
+        ellipsize(value, 27U, fitted, sizeof(fitted));
+        canvas.draw_text(50, y + 36, fitted, 2, GrayLevel::Black);
+    }
+    canvas.draw_text(420, y + 21, ">", 2, GrayLevel::Black);
+}
+
 void footer_status(Canvas &canvas, const DeviceSettingsUiState &state)
 {
     if (state.status[0] == '\0') {
@@ -152,24 +170,26 @@ void render_main(Canvas &canvas,
     char location[64] = {};
     std::snprintf(location, sizeof(location), "%.28s, %.28s",
                   settings.city, settings.country);
-    row(canvas, 115, "LOCATION", location);
+    main_row(canvas, 110, "LOCATION", location);
 
     char calculation[64] = {};
     std::snprintf(calculation, sizeof(calculation), "%s / %s",
                   settings_method_short_name(settings.calculation_method),
                   settings_asr_school_name(settings.asr_school));
-    row(canvas, 200, "CALCULATION", calculation);
-    row(canvas, 285, "MINUTE ADJUSTMENTS", "SEVEN DISPLAYED TIMES");
-    row(canvas, 370, "PRAYER REMINDER",
-        settings.sound_enabled ? "ON" : "OFF");
-    row(canvas, 455, "WI-FI SETUP", settings.wifi_ssid);
-    button(canvas, 34, 570, 412, 76,
+    main_row(canvas, 178, "CALCULATION", calculation);
+    main_row(canvas, 246, "MINUTE ADJUSTMENTS", "SEVEN TIME OFFSETS");
+    main_row(canvas, 314, "PRAYER REMINDER",
+             settings.sound_enabled ? "ON" : "OFF");
+    main_row(canvas, 382, "QIYAM DISPLAY",
+             settings.qiyam_visible ? "ON" : "OFF");
+    main_row(canvas, 450, "WI-FI SETUP", settings.wifi_ssid);
+    button(canvas, 34, 540, 412, 72,
            state.first_time ? "SAVE & START" : "SAVE & EXIT",
            true, 2, TextWeight::Bold);
     if (!state.first_time) {
-        button(canvas, 34, 660, 412, 60, "DISCARD & EXIT", false, 2);
+        button(canvas, 34, 625, 412, 60, "DISCARD & EXIT", false, 2);
     } else {
-        centered(canvas, 240, 678, "REQUIRED TO CONTINUE", 2);
+        centered(canvas, 240, 648, "REQUIRED TO CONTINUE", 2);
     }
     footer_status(canvas, state);
 }
@@ -396,13 +416,14 @@ DeviceSettingsAction prayer_settings_action_at(DeviceSettingsPage page,
         return {};
     }
     if (page == DeviceSettingsPage::Main) {
-        if (inside(x, y, 34, 115, 446, 191)) return {DeviceSettingsActionType::OpenLocation};
-        if (inside(x, y, 34, 200, 446, 276)) return {DeviceSettingsActionType::OpenCalculation};
-        if (inside(x, y, 34, 285, 446, 361)) return {DeviceSettingsActionType::OpenAdjustments};
-        if (inside(x, y, 34, 370, 446, 446)) return {DeviceSettingsActionType::ToggleReminder};
-        if (inside(x, y, 34, 455, 446, 531)) return {DeviceSettingsActionType::OpenWifi};
-        if (inside(x, y, 34, 570, 446, 646)) return {DeviceSettingsActionType::Save};
-        if (inside(x, y, 34, 660, 446, 720)) return {DeviceSettingsActionType::Cancel};
+        if (inside(x, y, 34, 110, 446, 174)) return {DeviceSettingsActionType::OpenLocation};
+        if (inside(x, y, 34, 178, 446, 242)) return {DeviceSettingsActionType::OpenCalculation};
+        if (inside(x, y, 34, 246, 446, 310)) return {DeviceSettingsActionType::OpenAdjustments};
+        if (inside(x, y, 34, 314, 446, 378)) return {DeviceSettingsActionType::ToggleReminder};
+        if (inside(x, y, 34, 382, 446, 446)) return {DeviceSettingsActionType::ToggleQiyamDisplay};
+        if (inside(x, y, 34, 450, 446, 514)) return {DeviceSettingsActionType::OpenWifi};
+        if (inside(x, y, 34, 540, 446, 612)) return {DeviceSettingsActionType::Save};
+        if (inside(x, y, 34, 625, 446, 685)) return {DeviceSettingsActionType::Cancel};
     } else if (page == DeviceSettingsPage::Location) {
         if (inside(x, y, 34, 115, 446, 187)) return {DeviceSettingsActionType::DetectLocation};
         if (inside(x, y, 34, 225, 100, 313)) return {DeviceSettingsActionType::LatitudeMinus};

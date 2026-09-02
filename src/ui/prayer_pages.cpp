@@ -294,7 +294,7 @@ void draw_landscape_schedule(Canvas &canvas, const PrayerPageModel &model)
                      remaining,
                      sizeof(remaining));
     draw_centered(canvas, 200, 398, remaining, 2, GrayLevel::Black);
-    if (model.window.qiyam_active) {
+    if (model.settings->qiyam_visible && model.window.qiyam_active) {
         char qiyam_time[6] = {};
         char qiyam[28] = {};
         format_time(model.window.qiyam_start_minutes, qiyam_time);
@@ -326,7 +326,8 @@ void draw_landscape_schedule(Canvas &canvas, const PrayerPageModel &model)
                   "TODAY'S TIMES",
                   2,
                   GrayLevel::Black);
-    for (size_t index = 0U; index < 7U; ++index) {
+    const size_t timeline_count = model.settings->qiyam_visible ? 7U : 6U;
+    for (size_t index = 0U; index < timeline_count; ++index) {
         const TimelineEntry &entry = kTimeline[index];
         const uint16_t prayer_minutes = model.today->minutes[
             static_cast<size_t>(entry.slot)];
@@ -400,7 +401,7 @@ void draw_portrait_schedule(Canvas &canvas, const PrayerPageModel &model)
                      remaining,
                      sizeof(remaining));
     draw_centered(canvas, 240, 354, remaining, 2, GrayLevel::Black);
-    if (model.window.qiyam_active) {
+    if (model.settings->qiyam_visible && model.window.qiyam_active) {
         char qiyam_time[6] = {};
         char qiyam[28] = {};
         format_time(model.window.qiyam_start_minutes, qiyam_time);
@@ -419,12 +420,14 @@ void draw_portrait_schedule(Canvas &canvas, const PrayerPageModel &model)
     constexpr int kTimelineX = 44;
     constexpr int kFirstCenterY = 456;
     constexpr int kRowStep = 29;
-    canvas.draw_line(kTimelineX,
-                     kFirstCenterY,
-                     kTimelineX,
-                     kFirstCenterY + 6 * kRowStep,
-                     GrayLevel::Black);
-    for (size_t index = 0U; index < 7U; ++index) {
+    const size_t timeline_count = model.settings->qiyam_visible ? 7U : 6U;
+    canvas.draw_line(
+        kTimelineX,
+        kFirstCenterY,
+        kTimelineX,
+        kFirstCenterY + static_cast<int>(timeline_count - 1U) * kRowStep,
+        GrayLevel::Black);
+    for (size_t index = 0U; index < timeline_count; ++index) {
         const TimelineEntry &entry = kTimeline[index];
         const uint16_t prayer_minutes = model.today->minutes[
             static_cast<size_t>(entry.slot)];

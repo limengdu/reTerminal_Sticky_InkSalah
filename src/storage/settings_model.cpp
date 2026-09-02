@@ -88,6 +88,7 @@ void settings_store_defaults(SalahSettings &settings)
     settings.custom_fajr_angle_tenths = 180U;
     settings.custom_isha_angle_tenths = 170U;
     settings.custom_isha_interval_minutes = 90U;
+    settings.qiyam_visible = true;
 }
 
 bool settings_wifi_valid(const SalahSettings &settings)

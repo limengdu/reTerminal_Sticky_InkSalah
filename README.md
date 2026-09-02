@@ -4,14 +4,14 @@ Sticky Salah 是面向 Seeed Studio reTerminal Sticky 的原生穆斯林礼拜�
 
 ## 主要功能
 
-- 显示 `Fajr`、`Sunrise`、`Dhuhr`、`Asr`、`Maghrib`、`Isha`、`Qiyam` 七个时间节点。
+- 显示 `Fajr`、`Sunrise`、`Dhuhr`、`Asr`、`Maghrib`、`Isha` 六个基础时间节点，并可按设置显示 `Qiyam`。
 - 主画面显示当前礼拜窗口、开始与结束时间、剩余时长和下一次必行礼拜；`Sunrise` 到 `Dhuhr` 显示为礼拜窗口之间的时段。
-- `Qiyam` 表示夜晚最后三分之一的开始：从当天 `Maghrib` 到次日 `Fajr` 的夜间长度计算得出，它作为与 `Isha` 窗口重叠的自愿礼拜时段显示。
+- `Qiyam` 表示夜晚最后三分之一的开始：从当天 `Maghrib` 到次日 `Fajr` 的夜间长度计算得出。开启 `QIYAM DISPLAY` 时，它作为与 `Isha` 窗口重叠的自愿礼拜时段显示；关闭时，夜间页面保持为 `Isha` 窗口。
 - 提供 23 种机构或地区计算标准、两种自定义 Fajr/Isha 规则、`Standard` 与 `Hanafi` 两类 Asr 规则，以及七个时间各自的 ±30 分钟微调。
 - 默认竖屏显示；设备真实横放后，由 IMU 唤醒并立即切换横屏页面。
 - 横竖屏礼拜页使用画图模型创作的米哈拉布尖拱、Girih 交织纹、阿拉伯蔓草纹与清真寺灯装饰，顶部信息、当前礼拜和七项时间分别占用独立区域。
 - 热点网页只负责 Wi-Fi。Wi-Fi 页自动扫描附近网络，列表点击与手动输入可以同时使用。
-- 礼拜设置是设备上的原生竖屏触摸菜单，包含地点、机构、Custom 角度/分钟、Asr 规则、七项微调和提示音。
+- 礼拜设置是设备上的原生竖屏触摸菜单，包含地点、机构、Custom 角度/分钟、Asr 规则、七项微调、Qiyam 显示和提示音。
 - 设备界面统一使用至少 2 倍点阵字号，当前选项、状态、日期和辅助提示都保持近距离可读。
 - 竖屏顶部集中显示城市、公历日期、计算机构与教法学派；横屏利用更宽空间补充回历日期和同步状态。
 - 设置页使用粗体标题与常规字重内容建立视觉层级；首次设置只提供保存并开始的完成入口。
@@ -21,7 +21,7 @@ Sticky Salah 是面向 Seeed Studio reTerminal Sticky 的原生穆斯林礼拜�
 - 联网时仅校准系统时间与板载 RTC；网络位置估算为可选功能。礼拜时间的日常计算可离线完成。
 - 设备醒来后由 GT911 触摸和 IMU 持续监听，底部上滑可随时打开设置，确认横竖方向改变后会立即重排页面。
 - 触摸和确认后的横竖屏变化会重新计时；连续 3 分钟无操作后，左上角显示小型弯月并进入深度睡眠，由定时器、顶部按键或 IMU 姿态变化唤醒。
-- 设置菜单和礼拜页先用快速波形完成切换，交互安静后自动进行完整清理刷新，使操作及时响应并保持长期画面干净。
+- 设置菜单的每次触摸切换都使用快速波形；礼拜主页面在切换后保留低频完整清理刷新，使设置操作保持连续响应并让长期展示画面保持干净。
 
 一句话总结：这是一台按太阳位置本地计算、能显示礼拜窗口的低功耗墨水屏礼拜时间牌。
 
@@ -177,6 +177,8 @@ python3 tools/preview_setup_portal.py --port 8769
 g++ -std=c++17 -Isrc/prayer -Isrc/storage -Isrc/ui tools/render_ui_preview.cpp src/prayer/prayer_time.cpp src/storage/settings_model.cpp src/ui/arabic_prayer_assets.cpp src/ui/islamic_background_asset.cpp src/ui/islamic_landscape_background_asset.cpp src/ui/islamic_setup_background_asset.cpp src/ui/canvas.cpp src/ui/font.cpp src/ui/prayer_pages.cpp src/ui/prayer_settings_pages.cpp src/ui/sleep_indicator.cpp -o /tmp/sticky_salah_ui_preview
 /tmp/sticky_salah_ui_preview portrait schedule /tmp/sticky_salah_portrait.pgm
 /tmp/sticky_salah_ui_preview landscape schedule /tmp/sticky_salah_landscape.pgm
+/tmp/sticky_salah_ui_preview portrait schedule-no-qiyam /tmp/sticky_salah_no_qiyam_portrait.pgm
+/tmp/sticky_salah_ui_preview landscape schedule-no-qiyam /tmp/sticky_salah_no_qiyam_landscape.pgm
 /tmp/sticky_salah_ui_preview portrait schedule-sleep /tmp/sticky_salah_sleep_portrait.pgm
 /tmp/sticky_salah_ui_preview landscape schedule-sleep /tmp/sticky_salah_sleep_landscape.pgm
 /tmp/sticky_salah_ui_preview portrait setup /tmp/sticky_salah_setup.pgm

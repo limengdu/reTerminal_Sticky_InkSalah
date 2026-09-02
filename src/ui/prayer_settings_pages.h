@@ -24,6 +24,7 @@ enum class DeviceSettingsActionType : uint8_t {
     OpenCalculation,
     OpenAdjustments,
     ToggleReminder,
+    ToggleQiyamDisplay,
     OpenWifi,
     Save,
     Cancel,

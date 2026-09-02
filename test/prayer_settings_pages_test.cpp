@@ -24,6 +24,7 @@ int main()
 {
     assert(prayer_settings_action_at(DeviceSettingsPage::Main, 240, 150).type == DeviceSettingsActionType::OpenLocation);
     assert(prayer_settings_action_at(DeviceSettingsPage::Main, 240, 490).type == DeviceSettingsActionType::OpenWifi);
+    assert(prayer_settings_action_at(DeviceSettingsPage::Main, 240, 410).type == DeviceSettingsActionType::ToggleQiyamDisplay);
     assert(prayer_settings_action_at(DeviceSettingsPage::Location, 240, 260).type == DeviceSettingsActionType::EditLatitude);
     assert(prayer_settings_action_at(DeviceSettingsPage::LatitudeEditor, 90, 620).type == DeviceSettingsActionType::EditorClear);
     assert(prayer_settings_action_at(DeviceSettingsPage::LatitudeEditor, 220, 620).type == DeviceSettingsActionType::EditorBackspace);
@@ -68,6 +69,7 @@ int main()
 
     SalahSettings settings = {};
     settings_store_defaults(settings);
+    assert(settings.qiyam_visible);
     std::strcpy(settings.wifi_ssid, "Home Wi-Fi");
     DeviceSettingsUiState state = {};
     prayer_settings_render(canvas, settings, state);

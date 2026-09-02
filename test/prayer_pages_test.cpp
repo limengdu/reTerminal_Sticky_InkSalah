@@ -105,6 +105,8 @@ int main()
     model.today = &today;
     model.next = {PrayerId::Maghrib, 1080U, 120U, false};
     model.window = {PrayerId::Asr, 930U, 1080U, 120U};
+    model.window.qiyam_active = true;
+    model.window.qiyam_start_minutes = 70U;
     model.current_minutes = 960U;
     model.online = true;
 
@@ -123,6 +125,14 @@ int main()
     assert(portrait_dark_pixels < 60000U);
     assert(canvas.pixel_at(44, 590) == GrayLevel::Black);
     assert(dark_pixels_below(canvas, 700) > 2500U);
+    const size_t qiyam_visible_pixels = dark_pixels_in_rect(
+        canvas, 20, 370, 460, 637);
+    settings.qiyam_visible = false;
+    prayer_page_render_schedule(canvas, model);
+    const size_t qiyam_hidden_pixels = dark_pixels_in_rect(
+        canvas, 20, 370, 460, 637);
+    assert(qiyam_hidden_pixels + 100U < qiyam_visible_pixels);
+    settings.qiyam_visible = true;
 
     prayer_page_render_setup(canvas,
                              "Sticky-Salah-A1B2",

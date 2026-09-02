@@ -392,6 +392,9 @@ DeviceSettingsResult device_settings_run(Canvas &canvas,
         case DeviceSettingsActionType::ToggleReminder:
             settings.sound_enabled = !settings.sound_enabled;
             break;
+        case DeviceSettingsActionType::ToggleQiyamDisplay:
+            settings.qiyam_visible = !settings.qiyam_visible;
+            break;
         case DeviceSettingsActionType::OpenWifi:
             settings = original;
             return DeviceSettingsResult::WifiRequested;
