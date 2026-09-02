@@ -69,6 +69,16 @@ def main() -> None:
         not in settings_source,
         "Saving settings must keep the active touch task available to the schedule.",
     )
+    require(
+        "setup_cancel_requested" in app_source
+        and "ProvisioningPortalExit::Cancelled" in app_source,
+        "An existing Wi-Fi setup flow must offer a native device-side return path.",
+    )
+    require(
+        "do {" in app_source
+        and "result == DeviceSettingsResult::WifiRequested" in app_source,
+        "Cancelling Wi-Fi setup must reopen native settings with saved values.",
+    )
 
 
 if __name__ == "__main__":

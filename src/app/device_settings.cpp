@@ -120,10 +120,14 @@ bool detect_location(SalahSettings &settings,
 
 void begin_editor(DeviceSettingsUiState &state,
                   DeviceSettingsPage page,
-                  double value)
+                  double value,
+                  uint8_t decimal_places = 4U)
 {
     state.page = page;
-    std::snprintf(state.editor_value, sizeof(state.editor_value), "%.4f", value);
+    std::snprintf(state.editor_value, sizeof(state.editor_value),
+                  decimal_places == 0U ? "%.0f" :
+                  decimal_places == 1U ? "%.1f" : "%.4f",
+                  value);
     set_status(state, "");
 }
 
@@ -142,18 +146,50 @@ bool confirm_editor(SalahSettings &settings, DeviceSettingsUiState &state)
 {
     char *end = nullptr;
     const double value = std::strtod(state.editor_value, &end);
-    const bool latitude = state.page == DeviceSettingsPage::LatitudeEditor;
-    const double minimum = latitude ? -90.0 : -180.0;
-    const double maximum = latitude ? 90.0 : 180.0;
+    const DeviceSettingsPage editor_page = state.page;
+    const bool latitude = editor_page == DeviceSettingsPage::LatitudeEditor;
+    const bool longitude = editor_page ==
+                           DeviceSettingsPage::LongitudeEditor;
+    const bool custom_fajr = editor_page ==
+                             DeviceSettingsPage::CustomFajrEditor;
+    const bool custom_interval = editor_page ==
+                                     DeviceSettingsPage::CustomIshaEditor &&
+                                 settings.calculation_method ==
+                                     kCalculationMethodCustomInterval;
+    const double minimum = latitude ? -90.0
+                           : longitude ? -180.0
+                           : custom_interval
+                                 ? kMinimumIshaIntervalMinutes
+                                 : kMinimumTwilightAngleTenths / 10.0;
+    const double maximum = latitude ? 90.0
+                           : longitude ? 180.0
+                           : custom_interval
+                                 ? kMaximumIshaIntervalMinutes
+                                 : kMaximumTwilightAngleTenths / 10.0;
     if (state.editor_value == end || end == nullptr || *end != '\0' ||
-        !std::isfinite(value) || value < minimum || value > maximum) {
+        !std::isfinite(value) || value < minimum || value > maximum ||
+        (custom_interval && std::floor(value) != value)) {
         set_status(state, "VALUE IS OUTSIDE THE VALID RANGE");
         return false;
     }
     if (latitude) {
         settings.latitude = value;
-    } else {
+    } else if (longitude) {
         settings.longitude = value;
+    } else if (custom_fajr) {
+        settings.custom_fajr_angle_tenths = static_cast<uint16_t>(
+            std::lround(value * 10.0));
+    } else if (custom_interval) {
+        settings.custom_isha_interval_minutes = static_cast<uint16_t>(value);
+    } else {
+        settings.custom_isha_angle_tenths = static_cast<uint16_t>(
+            std::lround(value * 10.0));
+    }
+    if (!latitude && !longitude) {
+        state.page = DeviceSettingsPage::CustomMethod;
+        state.editor_value[0] = '\0';
+        set_status(state, "CUSTOM METHOD VALUE APPLIED");
+        return true;
     }
     copy_text(settings.city, sizeof(settings.city), "Manual");
     copy_text(settings.country, sizeof(settings.country), "Coordinates");
@@ -162,6 +198,22 @@ bool confirm_editor(SalahSettings &settings, DeviceSettingsUiState &state)
     state.editor_value[0] = '\0';
     set_status(state, "MANUAL COORDINATES APPLIED");
     return true;
+}
+
+// Locates the page that contains the currently selected calculation method.
+// 定位当前计算方法所在的分页。
+uint8_t method_page_for(uint8_t method)
+{
+    constexpr size_t kMethodsPerPage = 5U;
+    for (size_t index = 0U;
+         index < settings_calculation_method_count(); ++index) {
+        const CalculationMethodDefinition *definition =
+            settings_calculation_method_at(index);
+        if (definition != nullptr && definition->id == method) {
+            return static_cast<uint8_t>(index / kMethodsPerPage);
+        }
+    }
+    return 0U;
 }
 
 bool validate_and_save(SalahSettings &settings,
@@ -338,7 +390,7 @@ DeviceSettingsResult device_settings_run(Canvas &canvas,
         int y = 0;
         canvas.physical_to_logical(press.x, press.y, x, y);
         const DeviceSettingsAction action = prayer_settings_action_at(
-            state.page, x, y);
+            state.page, x, y, state.method_page);
         if (action.type == DeviceSettingsActionType::None) {
             continue;
         }
@@ -424,10 +476,51 @@ DeviceSettingsResult device_settings_run(Canvas &canvas,
         case DeviceSettingsActionType::SelectMethod:
             if (action.value < 0) {
                 state.page = DeviceSettingsPage::MethodList;
+                state.method_page = method_page_for(
+                    settings.calculation_method);
             } else {
                 settings.calculation_method = static_cast<uint8_t>(action.value);
-                state.page = DeviceSettingsPage::Calculation;
+                state.page = settings.calculation_method ==
+                                     kCalculationMethodCustomAngles ||
+                                 settings.calculation_method ==
+                                     kCalculationMethodCustomInterval
+                                 ? DeviceSettingsPage::CustomMethod
+                                 : DeviceSettingsPage::Calculation;
             }
+            break;
+        case DeviceSettingsActionType::PreviousMethodPage:
+            if (state.method_page > 0U) {
+                --state.method_page;
+            }
+            break;
+        case DeviceSettingsActionType::NextMethodPage: {
+            constexpr size_t kMethodsPerPage = 5U;
+            const size_t page_count =
+                (settings_calculation_method_count() +
+                 kMethodsPerPage - 1U) /
+                kMethodsPerPage;
+            if (static_cast<size_t>(state.method_page) + 1U < page_count) {
+                ++state.method_page;
+            }
+            break;
+        }
+        case DeviceSettingsActionType::EditCustomFajr:
+            begin_editor(state, DeviceSettingsPage::CustomFajrEditor,
+                         settings.custom_fajr_angle_tenths / 10.0, 1U);
+            break;
+        case DeviceSettingsActionType::EditCustomIsha:
+            if (settings.calculation_method ==
+                kCalculationMethodCustomInterval) {
+                begin_editor(
+                    state, DeviceSettingsPage::CustomIshaEditor,
+                    settings.custom_isha_interval_minutes, 0U);
+            } else {
+                begin_editor(state, DeviceSettingsPage::CustomIshaEditor,
+                             settings.custom_isha_angle_tenths / 10.0, 1U);
+            }
+            break;
+        case DeviceSettingsActionType::FinishCustomMethod:
+            state.page = DeviceSettingsPage::Calculation;
             break;
         case DeviceSettingsActionType::AdjustmentMinus:
         case DeviceSettingsActionType::AdjustmentPlus: {
@@ -441,7 +534,16 @@ DeviceSettingsResult device_settings_run(Canvas &canvas,
         case DeviceSettingsActionType::EditorDigit:
             append_editor(state, static_cast<char>('0' + action.value));
             break;
+        case DeviceSettingsActionType::EditorDoubleZero:
+            if (append_editor(state, '0')) {
+                append_editor(state, '0');
+            }
+            break;
         case DeviceSettingsActionType::EditorSign:
+            if (state.page != DeviceSettingsPage::LatitudeEditor &&
+                state.page != DeviceSettingsPage::LongitudeEditor) {
+                break;
+            }
             if (state.editor_value[0] == '-') {
                 std::memmove(state.editor_value, state.editor_value + 1,
                              std::strlen(state.editor_value));

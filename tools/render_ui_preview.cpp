@@ -50,7 +50,7 @@ int main(int argc, char **argv)
 {
     if (argc != 4) {
         std::fprintf(stderr,
-                     "Usage: render_ui_preview <landscape|portrait> <schedule|schedule-sleep|setup|error|settings-main|settings-main-first-time|settings-location|settings-calculation|settings-adjustments> <output.pgm>\n");
+                     "Usage: render_ui_preview <landscape|portrait> <schedule|schedule-sleep|setup|setup-return|error|settings-main|settings-main-first-time|settings-location|settings-calculation|settings-methods|settings-custom|settings-adjustments> <output.pgm>\n");
         return 2;
     }
     const bool portrait = std::strcmp(argv[1], "portrait") == 0;
@@ -81,6 +81,12 @@ int main(int argc, char **argv)
             state.page = DeviceSettingsPage::Location;
         } else if (std::strcmp(argv[2], "settings-calculation") == 0) {
             state.page = DeviceSettingsPage::Calculation;
+        } else if (std::strcmp(argv[2], "settings-methods") == 0) {
+            state.page = DeviceSettingsPage::MethodList;
+            state.method_page = 2U;
+        } else if (std::strcmp(argv[2], "settings-custom") == 0) {
+            state.page = DeviceSettingsPage::CustomMethod;
+            settings.calculation_method = kCalculationMethodCustomAngles;
         } else if (std::strcmp(argv[2], "settings-adjustments") == 0) {
             state.page = DeviceSettingsPage::Adjustments;
             settings.prayer_adjustments[0] = 2;
@@ -90,10 +96,12 @@ int main(int argc, char **argv)
             return 2;
         }
         prayer_settings_render(canvas, settings, state);
-    } else if (std::strcmp(argv[2], "setup") == 0) {
+    } else if (std::strcmp(argv[2], "setup") == 0 ||
+               std::strcmp(argv[2], "setup-return") == 0) {
         prayer_page_render_setup(canvas,
                                  "Sticky-Salah-A1B2",
-                                 "sticky-salah");
+                                 "sticky-salah",
+                                 std::strcmp(argv[2], "setup-return") == 0);
     } else if (std::strcmp(argv[2], "error") == 0) {
         prayer_page_render_error(canvas,
                                  "SETUP UNAVAILABLE",

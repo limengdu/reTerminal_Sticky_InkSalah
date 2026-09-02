@@ -13,6 +13,9 @@ struct CalculationProfile {
     double fajr_angle = 18.0;
     double isha_angle = 17.0;
     uint16_t isha_interval_minutes = 0U;
+    double maghrib_angle = 0.0;
+    int8_t maghrib_offset_minutes = 0;
+    bool seasonal_twilight = false;
 };
 
 struct SolarParameters {
@@ -99,57 +102,105 @@ double hour_angle_degrees(double latitude,
     return degrees(std::acos(cosine));
 }
 
-CalculationProfile calculation_profile(uint8_t method)
+// Resolves one preset or custom selection into the solar parameters in use.
+// 将预设或自定义选项解析为本次计算使用的太阳参数。
+CalculationProfile calculation_profile(const SalahSettings &settings)
 {
-    switch (method) {
-    case 0U:
-        return {16.0, 14.0, 0U};
-    case 1U:
-        return {18.0, 18.0, 0U};
-    case 2U:
-        return {15.0, 15.0, 0U};
-    case 4U:
-        return {18.5, 0.0, 90U};
-    case 5U:
-        return {19.5, 17.5, 0U};
-    case 7U:
-        return {17.7, 14.0, 0U};
-    case 8U:
-        return {19.5, 0.0, 90U};
-    case 9U:
-        return {18.0, 17.5, 0U};
-    case 10U:
-        return {18.0, 0.0, 90U};
-    case 11U:
-        return {20.0, 18.0, 0U};
-    case 12U:
-        return {12.0, 12.0, 0U};
-    case 13U:
-        return {18.0, 17.0, 0U};
-    case 14U:
-        return {16.0, 15.0, 0U};
-    case 15U:
-        return {18.0, 18.0, 0U};
-    case 16U:
-        return {18.2, 18.2, 0U};
-    case 17U:
-        return {20.0, 18.0, 0U};
-    case 18U:
-        return {18.0, 18.0, 0U};
-    case 19U:
-        return {18.0, 17.0, 0U};
-    case 20U:
-        return {20.0, 18.0, 0U};
-    case 21U:
-        return {19.0, 17.0, 0U};
-    case 22U:
-        return {18.0, 0.0, 77U};
-    case 23U:
-        return {18.0, 18.0, 0U};
-    case 3U:
-    default:
-        return {18.0, 17.0, 0U};
+    if (settings.calculation_method == kCalculationMethodCustomAngles) {
+        return {
+            settings.custom_fajr_angle_tenths / 10.0,
+            settings.custom_isha_angle_tenths / 10.0,
+            0U,
+            0.0,
+            0,
+            false,
+        };
     }
+    if (settings.calculation_method == kCalculationMethodCustomInterval) {
+        return {
+            settings.custom_fajr_angle_tenths / 10.0,
+            0.0,
+            settings.custom_isha_interval_minutes,
+            0.0,
+            0,
+            false,
+        };
+    }
+    const CalculationMethodDefinition *definition =
+        settings_calculation_method_by_id(settings.calculation_method);
+    if (definition == nullptr) {
+        definition = settings_calculation_method_by_id(3U);
+    }
+    return {
+        definition->fajr_angle_tenths / 10.0,
+        definition->isha_angle_tenths / 10.0,
+        definition->isha_interval_minutes,
+        definition->maghrib_angle_tenths / 10.0,
+        definition->maghrib_offset_minutes,
+        definition->seasonal_twilight,
+    };
+}
+
+bool leap_year(uint16_t year)
+{
+    return (year % 4U == 0U && year % 100U != 0U) ||
+           year % 400U == 0U;
+}
+
+uint16_t days_since_solstice(const PrayerDate &date, double latitude)
+{
+    const uint16_t days_in_year = leap_year(date.year) ? 366U : 365U;
+    int value = day_of_year(date);
+    if (latitude >= 0.0) {
+        value += 10;
+        if (value >= days_in_year) {
+            value -= days_in_year;
+        }
+    } else {
+        value -= leap_year(date.year) ? 173 : 172;
+        if (value < 0) {
+            value += days_in_year;
+        }
+    }
+    return static_cast<uint16_t>(value);
+}
+
+double seasonal_interpolation(double a,
+                              double b,
+                              double c,
+                              double d,
+                              uint16_t day)
+{
+    if (day < 91U) return a + (b - a) / 91.0 * day;
+    if (day < 137U) return b + (c - b) / 46.0 * (day - 91U);
+    if (day < 183U) return c + (d - c) / 46.0 * (day - 137U);
+    if (day < 229U) return d + (c - d) / 46.0 * (day - 183U);
+    if (day < 275U) return c + (b - c) / 46.0 * (day - 229U);
+    return b + (a - b) / 91.0 * (day - 275U);
+}
+
+double seasonal_morning_twilight_minutes(const PrayerDate &date,
+                                          double latitude)
+{
+    const double absolute_latitude = std::fabs(latitude);
+    return seasonal_interpolation(
+        75.0 + 28.65 / 55.0 * absolute_latitude,
+        75.0 + 19.44 / 55.0 * absolute_latitude,
+        75.0 + 32.74 / 55.0 * absolute_latitude,
+        75.0 + 48.10 / 55.0 * absolute_latitude,
+        days_since_solstice(date, latitude));
+}
+
+double seasonal_evening_twilight_minutes(const PrayerDate &date,
+                                          double latitude)
+{
+    const double absolute_latitude = std::fabs(latitude);
+    return seasonal_interpolation(
+        75.0 + 25.60 / 55.0 * absolute_latitude,
+        75.0 + 2.050 / 55.0 * absolute_latitude,
+        75.0 - 9.210 / 55.0 * absolute_latitude,
+        75.0 + 6.140 / 55.0 * absolute_latitude,
+        days_since_solstice(date, latitude));
 }
 
 double high_latitude_fraction(double angle)
@@ -162,8 +213,7 @@ bool calculate_six_times(const SalahSettings &settings,
                          uint16_t output[6])
 {
     const SolarParameters solar = solar_parameters(date);
-    const CalculationProfile profile = calculation_profile(
-        settings.calculation_method);
+    const CalculationProfile profile = calculation_profile(settings);
     const double noon = 720.0 - 4.0 * settings.longitude -
                         solar.equation_of_time_minutes +
                         settings.utc_offset_minutes;
@@ -175,6 +225,19 @@ bool calculate_six_times(const SalahSettings &settings,
     }
     const double sunrise = noon - 4.0 * sunrise_hour_angle;
     const double sunset = noon + 4.0 * sunrise_hour_angle;
+    const double maghrib_hour_angle = profile.maghrib_angle > 0.0
+                                          ? hour_angle_degrees(
+                                                latitude,
+                                                solar.declination_radians,
+                                                -profile.maghrib_angle)
+                                          : 0.0;
+    if (profile.maghrib_angle > 0.0 &&
+        !std::isfinite(maghrib_hour_angle)) {
+        return false;
+    }
+    const double maghrib = profile.maghrib_angle > 0.0
+                               ? noon + 4.0 * maghrib_hour_angle
+                               : sunset + profile.maghrib_offset_minutes;
 
     double fajr_hour_angle = hour_angle_degrees(
         latitude, solar.declination_radians, -profile.fajr_angle);
@@ -188,7 +251,7 @@ bool calculate_six_times(const SalahSettings &settings,
                       ? noon - 4.0 * fajr_hour_angle
                       : NAN;
     double isha = profile.isha_interval_minutes != 0U
-                      ? sunset + profile.isha_interval_minutes
+                      ? maghrib + profile.isha_interval_minutes
                       : (std::isfinite(isha_hour_angle)
                              ? noon + 4.0 * isha_hour_angle
                              : NAN);
@@ -196,12 +259,31 @@ bool calculate_six_times(const SalahSettings &settings,
     // Caps twilight spans to an angle-based fraction of the night.
     // 将晨昏时间限制在按角度划分的夜长范围内。
     const double night_length = kMinutesPerDay - (sunset - sunrise);
-    const double fajr_limit = high_latitude_fraction(profile.fajr_angle) *
-                              night_length;
-    if (!std::isfinite(fajr) || sunrise - fajr > fajr_limit) {
-        fajr = sunrise - fajr_limit;
+    if (profile.seasonal_twilight) {
+        if (std::fabs(latitude) >= 55.0) {
+            fajr = sunrise - night_length / 7.0;
+            isha = sunset + night_length / 7.0;
+        }
+        const double safe_fajr = sunrise -
+            seasonal_morning_twilight_minutes(date, latitude);
+        const double safe_isha = sunset +
+            seasonal_evening_twilight_minutes(date, latitude);
+        if (!std::isfinite(fajr) || fajr < safe_fajr) {
+            fajr = safe_fajr;
+        }
+        if (!std::isfinite(isha) || isha > safe_isha) {
+            isha = safe_isha;
+        }
+    } else {
+        const double fajr_limit = high_latitude_fraction(
+                                      profile.fajr_angle) *
+                                  night_length;
+        if (!std::isfinite(fajr) || sunrise - fajr > fajr_limit) {
+            fajr = sunrise - fajr_limit;
+        }
     }
-    if (profile.isha_interval_minutes == 0U) {
+    if (!profile.seasonal_twilight &&
+        profile.isha_interval_minutes == 0U) {
         const double isha_limit = high_latitude_fraction(profile.isha_angle) *
                                   night_length;
         if (!std::isfinite(isha) || isha - sunset > isha_limit) {
@@ -226,7 +308,7 @@ bool calculate_six_times(const SalahSettings &settings,
         sunrise,
         noon,
         noon + 4.0 * asr_hour_angle,
-        sunset,
+        maghrib,
         isha,
     };
     for (size_t index = 0U; index < 6U; ++index) {

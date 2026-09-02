@@ -19,7 +19,9 @@ struct PrayerPageModel {
 
 void prayer_page_render_setup(Canvas &canvas,
                               const char *ap_ssid,
-                              const char *ap_password);
+                              const char *ap_password,
+                              bool can_return);
+bool prayer_page_setup_back_action_at(int x, int y, bool can_return);
 void prayer_page_render_error(Canvas &canvas,
                               const char *title,
                               const char *message);

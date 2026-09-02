@@ -131,8 +131,55 @@ CanvasRotation detect_rotation()
                                  0U);
 }
 
-void show_setup(Canvas &canvas, const SalahSettings *existing_settings)
+struct SetupCancelContext {
+    Canvas *canvas = nullptr;
+};
+
+// Converts setup-page taps and left-edge swipes into one portal cancel signal.
+// 将配网页面的按钮点击和左侧滑动统一转换为门户取消信号。
+bool setup_cancel_requested(void *context)
 {
+    auto *cancel = static_cast<SetupCancelContext *>(context);
+    if (cancel == nullptr || cancel->canvas == nullptr) {
+        return false;
+    }
+    StickyTouchInteraction interaction = {};
+    if (sticky_touch_take_interaction(interaction)) {
+        int start_x = 0;
+        int start_y = 0;
+        int end_x = 0;
+        int end_y = 0;
+        cancel->canvas->physical_to_logical(
+            interaction.start_x, interaction.start_y, start_x, start_y);
+        cancel->canvas->physical_to_logical(
+            interaction.end_x, interaction.end_y, end_x, end_y);
+        const StickyLogicalTouchPath path = {
+            start_x,
+            start_y,
+            end_x,
+            end_y,
+            interaction.ended_at_ms - interaction.started_at_ms,
+        };
+        if (sticky_touch_classify_horizontal_swipe(
+                path, cancel->canvas->width(), cancel->canvas->height()) ==
+            StickyHorizontalSwipe::RightFromLeft) {
+            return true;
+        }
+    }
+    StickyTouchPress press = {};
+    if (!sticky_touch_take_press(press)) {
+        return false;
+    }
+    int x = 0;
+    int y = 0;
+    cancel->canvas->physical_to_logical(press.x, press.y, x, y);
+    return prayer_page_setup_back_action_at(x, y, true);
+}
+
+bool show_setup(Canvas &canvas, const SalahSettings *existing_settings)
+{
+    const bool can_return = existing_settings != nullptr &&
+                            settings_wifi_valid(*existing_settings);
     char ap_ssid[32] = {};
     const esp_err_t ap_result = wifi_service_start_setup_ap(
         ap_ssid, sizeof(ap_ssid));
@@ -148,12 +195,28 @@ void show_setup(Canvas &canvas, const SalahSettings *existing_settings)
     sticky_display_set_battery_overlay_enabled(false);
     prayer_page_render_setup(canvas,
                              ap_ssid,
-                             kStickySalahSetupPassword);
+                             kStickySalahSetupPassword,
+                             can_return);
     sticky_display_refresh_monochrome();
 
+    SetupCancelContext cancel_context = {&canvas};
+    if (can_return) {
+        if (sticky_touch_init() != ESP_OK) {
+            wifi_service_stop();
+            return false;
+        }
+        sticky_touch_clear_press();
+        sticky_touch_clear_interaction();
+    }
+
     SalahSettings saved = {};
+    ProvisioningPortalExit portal_exit = ProvisioningPortalExit::Cancelled;
     const esp_err_t portal_result = provisioning_portal_run(
-        existing_settings, saved);
+        existing_settings,
+        saved,
+        portal_exit,
+        can_return ? setup_cancel_requested : nullptr,
+        can_return ? &cancel_context : nullptr);
     if (portal_result != ESP_OK) {
         prayer_page_render_error(canvas,
                                  "SETUP UNAVAILABLE",
@@ -162,11 +225,19 @@ void show_setup(Canvas &canvas, const SalahSettings *existing_settings)
         enter_deep_sleep(canvas, kErrorRetryUs);
     }
     wifi_service_stop();
+    if (can_return) {
+        sticky_touch_stop();
+    }
+    if (portal_exit == ProvisioningPortalExit::Cancelled) {
+        sticky_display_prepare_app_transition_refresh();
+        return false;
+    }
     vTaskDelay(pdMS_TO_TICKS(250));
     esp_restart();
     while (true) {
         vTaskDelay(portMAX_DELAY);
     }
+    return true;
 }
 
 StickyVerticalSwipe classify_swipe(Canvas &canvas,
@@ -355,11 +426,13 @@ bool run_settings(Canvas &canvas,
 {
     const int16_t previous_utc_offset_minutes =
         settings.utc_offset_minutes;
-    const DeviceSettingsResult result = device_settings_run(
-        canvas, settings, first_time);
-    if (result == DeviceSettingsResult::WifiRequested) {
-        show_setup(canvas, &settings);
-    }
+    DeviceSettingsResult result = DeviceSettingsResult::Cancelled;
+    do {
+        result = device_settings_run(canvas, settings, first_time);
+        if (result == DeviceSettingsResult::WifiRequested) {
+            show_setup(canvas, &settings);
+        }
+    } while (result == DeviceSettingsResult::WifiRequested);
     if (result == DeviceSettingsResult::Failed) {
         // The settings flow already presents the specific hardware error.
         // 设置流程已经显示具体的硬件错误，此处直接等待自动重试。

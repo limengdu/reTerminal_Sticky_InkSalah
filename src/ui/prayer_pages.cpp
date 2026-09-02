@@ -459,7 +459,8 @@ void draw_portrait_schedule(Canvas &canvas, const PrayerPageModel &model)
 
 void prayer_page_render_setup(Canvas &canvas,
                               const char *ap_ssid,
-                              const char *ap_password)
+                              const char *ap_password,
+                              bool can_return)
 {
     canvas.clear();
     if (canvas.width() < canvas.height()) {
@@ -473,7 +474,8 @@ void prayer_page_render_setup(Canvas &canvas,
         draw_centered(canvas,
                       static_cast<int>(canvas.width()) / 2,
                       198,
-                      "FIRST-TIME WI-FI SETUP",
+                      can_return ? "WI-FI SETUP" :
+                                   "FIRST-TIME WI-FI SETUP",
                       2,
                       GrayLevel::Black);
 
@@ -523,6 +525,12 @@ void prayer_page_render_setup(Canvas &canvas,
                       "PAGE OPENS AUTOMATICALLY",
                       2,
                       GrayLevel::Black);
+        if (can_return) {
+            canvas.fill_rect(34, 660, 412, 58, GrayLevel::White);
+            canvas.draw_rect(34, 660, 412, 58, GrayLevel::Black);
+            draw_centered(canvas, 240, 681, "BACK TO SETTINGS", 2,
+                          GrayLevel::Black);
+        }
         return;
     }
     draw_centered(canvas,
@@ -555,6 +563,11 @@ void prayer_page_render_setup(Canvas &canvas,
                   "OPEN 192.168.4.1",
                   2,
                   GrayLevel::DarkGray);
+}
+
+bool prayer_page_setup_back_action_at(int x, int y, bool can_return)
+{
+    return can_return && x >= 34 && x <= 446 && y >= 660 && y <= 718;
 }
 
 void prayer_page_render_error(Canvas &canvas,

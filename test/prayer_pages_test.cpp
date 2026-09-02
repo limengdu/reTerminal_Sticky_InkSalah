@@ -126,7 +126,8 @@ int main()
 
     prayer_page_render_setup(canvas,
                              "Sticky-Salah-A1B2",
-                             "sticky-salah");
+                             "sticky-salah",
+                             true);
     const size_t setup_dark_pixels = dark_pixels(canvas);
     assert(setup_dark_pixels > 35000U);
     assert(setup_dark_pixels < 65000U);
@@ -135,6 +136,8 @@ int main()
     assert(dark_pixels_in_rect(canvas, 100, 250, 380, 330) == 0U);
     assert(dark_pixels_in_rect(canvas, 90, 340, 390, 650) > 2500U);
     assert(dark_pixels_below(canvas, 620) > 5000U);
+    assert(prayer_page_setup_back_action_at(240, 690, true));
+    assert(!prayer_page_setup_back_action_at(240, 690, false));
 
     const IslamicBackgroundAsset portrait_background =
         islamic_prayer_background_asset();

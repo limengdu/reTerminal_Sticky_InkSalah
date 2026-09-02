@@ -32,12 +32,22 @@ int main()
     assert(prayer_settings_parent_page(DeviceSettingsPage::Location) == DeviceSettingsPage::Main);
     assert(prayer_settings_parent_page(DeviceSettingsPage::Calculation) == DeviceSettingsPage::Main);
     assert(prayer_settings_parent_page(DeviceSettingsPage::MethodList) == DeviceSettingsPage::Calculation);
+    assert(prayer_settings_parent_page(DeviceSettingsPage::CustomMethod) == DeviceSettingsPage::MethodList);
     assert(prayer_settings_parent_page(DeviceSettingsPage::Adjustments) == DeviceSettingsPage::Main);
     assert(prayer_settings_parent_page(DeviceSettingsPage::LatitudeEditor) == DeviceSettingsPage::Location);
     assert(prayer_settings_parent_page(DeviceSettingsPage::LongitudeEditor) == DeviceSettingsPage::Location);
+    assert(prayer_settings_parent_page(DeviceSettingsPage::CustomFajrEditor) == DeviceSettingsPage::CustomMethod);
     assert(prayer_settings_action_at(DeviceSettingsPage::Calculation, 100, 360).type == DeviceSettingsActionType::SelectStandard);
-    const DeviceSettingsAction method = prayer_settings_action_at(DeviceSettingsPage::MethodList, 240, 255);
+    const DeviceSettingsAction method = prayer_settings_action_at(
+        DeviceSettingsPage::MethodList, 240, 420, 0U);
     assert(method.type == DeviceSettingsActionType::SelectMethod && method.value == 3);
+    const DeviceSettingsAction custom_interval = prayer_settings_action_at(
+        DeviceSettingsPage::MethodList, 240, 510, 4U);
+    assert(custom_interval.type == DeviceSettingsActionType::SelectMethod &&
+           custom_interval.value == kCalculationMethodCustomInterval);
+    assert(prayer_settings_action_at(
+               DeviceSettingsPage::MethodList, 100, 600, 1U).type ==
+           DeviceSettingsActionType::PreviousMethodPage);
     const DeviceSettingsAction adjustment = prayer_settings_action_at(DeviceSettingsPage::Adjustments, 420, 350);
     assert(adjustment.type == DeviceSettingsActionType::AdjustmentPlus && adjustment.value == 3);
     const DeviceSettingsAction digit = prayer_settings_action_at(DeviceSettingsPage::LatitudeEditor, 100, 250);
@@ -66,6 +76,14 @@ int main()
     prayer_settings_render(canvas, settings, state);
     assert(black_pixels(canvas) > 10000U);
     state.page = DeviceSettingsPage::Adjustments;
+    prayer_settings_render(canvas, settings, state);
+    assert(black_pixels(canvas) > 10000U);
+    state.page = DeviceSettingsPage::MethodList;
+    state.method_page = 4U;
+    prayer_settings_render(canvas, settings, state);
+    assert(black_pixels(canvas) > 10000U);
+    settings.calculation_method = kCalculationMethodCustomAngles;
+    state.page = DeviceSettingsPage::CustomMethod;
     prayer_settings_render(canvas, settings, state);
     assert(black_pixels(canvas) > 10000U);
     state.page = DeviceSettingsPage::LatitudeEditor;

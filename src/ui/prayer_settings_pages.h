@@ -10,9 +10,12 @@ enum class DeviceSettingsPage : uint8_t {
     Location,
     Calculation,
     MethodList,
+    CustomMethod,
     Adjustments,
     LatitudeEditor,
     LongitudeEditor,
+    CustomFajrEditor,
+    CustomIshaEditor,
 };
 
 enum class DeviceSettingsActionType : uint8_t {
@@ -39,9 +42,15 @@ enum class DeviceSettingsActionType : uint8_t {
     SelectStandard,
     SelectHanafi,
     SelectMethod,
+    PreviousMethodPage,
+    NextMethodPage,
+    EditCustomFajr,
+    EditCustomIsha,
+    FinishCustomMethod,
     AdjustmentMinus,
     AdjustmentPlus,
     EditorDigit,
+    EditorDoubleZero,
     EditorSign,
     EditorDot,
     EditorClear,
@@ -57,6 +66,7 @@ struct DeviceSettingsAction {
 struct DeviceSettingsUiState {
     DeviceSettingsPage page = DeviceSettingsPage::Main;
     bool first_time = false;
+    uint8_t method_page = 0U;
     char editor_value[20] = {};
     char status[72] = {};
 };
@@ -65,7 +75,8 @@ struct DeviceSettingsUiState {
 // 将一个竖屏触摸坐标映射为设置操作。
 DeviceSettingsAction prayer_settings_action_at(DeviceSettingsPage page,
                                                 int x,
-                                                int y);
+                                                int y,
+                                                uint8_t method_page = 0U);
 
 // Returns the parent page for one in-settings back gesture.
 // 返回设置内一次返回操作对应的上一级页面。

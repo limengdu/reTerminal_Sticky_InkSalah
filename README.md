@@ -7,11 +7,11 @@ Sticky Salah 是面向 Seeed Studio reTerminal Sticky 的原生穆斯林礼拜�
 - 显示 `Fajr`、`Sunrise`、`Dhuhr`、`Asr`、`Maghrib`、`Isha`、`Qiyam` 七个时间节点。
 - 主画面显示当前礼拜窗口、开始与结束时间、剩余时长和下一次必行礼拜；`Sunrise` 到 `Dhuhr` 显示为礼拜窗口之间的时段。
 - `Qiyam` 表示夜晚最后三分之一的开始：从当天 `Maghrib` 到次日 `Fajr` 的夜间长度计算得出，它作为与 `Isha` 窗口重叠的自愿礼拜时段显示。
-- 提供常见计算机构、`Standard` 与 `Hanafi` 两类 Asr 规则，以及七个时间各自的 ±30 分钟微调。
+- 提供 23 种机构或地区计算标准、两种自定义 Fajr/Isha 规则、`Standard` 与 `Hanafi` 两类 Asr 规则，以及七个时间各自的 ±30 分钟微调。
 - 默认竖屏显示；设备真实横放后，由 IMU 唤醒并立即切换横屏页面。
 - 横竖屏礼拜页使用画图模型创作的米哈拉布尖拱、Girih 交织纹、阿拉伯蔓草纹与清真寺灯装饰，顶部信息、当前礼拜和七项时间分别占用独立区域。
 - 热点网页只负责 Wi-Fi。Wi-Fi 页自动扫描附近网络，列表点击与手动输入可以同时使用。
-- 礼拜设置是设备上的原生竖屏触摸菜单，包含地点、机构、Asr 规则、七项微调和提示音。
+- 礼拜设置是设备上的原生竖屏触摸菜单，包含地点、机构、Custom 角度/分钟、Asr 规则、七项微调和提示音。
 - 设备界面统一使用至少 2 倍点阵字号，当前选项、状态、日期和辅助提示都保持近距离可读。
 - 竖屏顶部集中显示城市、公历日期、计算机构与教法学派；横屏利用更宽空间补充回历日期和同步状态。
 - 设置页使用粗体标题与常规字重内容建立视觉层级；首次设置只提供保存并开始的完成入口。
@@ -37,7 +37,7 @@ Sticky Salah 是面向 Seeed Studio reTerminal Sticky 的原生穆斯林礼拜�
 - `Isha`：暮光达到所选机构标准后，宵礼窗口开始，并持续到次日 `Fajr`。
 - `Qiyam`：夜晚最后三分之一开始，即 `Maghrib + 2/3 × (次日 Fajr - Maghrib)`。
 
-计算机构主要决定 `Fajr` 与 `Isha` 使用的太阳角度。Asr 学派设置只改变 `Asr`。高纬度暮光在存在正常日出和日落的日期采用角度比例限制。用户参加集体礼拜时，仍以所跟随清真寺公布的实际安排为准。
+计算机构主要决定 `Fajr` 与 `Isha` 使用的太阳角度或日落后分钟数；Jafari 与 Tehran 还包含各自的 Maghrib 太阳角度。设备使用 [AlAdhan calculation methods](https://api.aladhan.com/v1/methods) 编号和通行简称，例如 `ISNA`、`MWL`、`MUIS`、`UOIF`、`DIYANET`、`JAKIM` 与 `KEMENAG`。`CUSTOM ANGLES` 可分别输入 Fajr/Isha 角度，`CUSTOM INTERVAL` 可输入 Fajr 角度和 Isha 在 Maghrib 后的分钟数。Asr 学派设置只改变 `Asr`。`MOONSIGHTING` 使用随纬度和季节变化的安全晨昏区间，其他角度制机构在高纬度采用夜长比例限制。用户参加集体礼拜时，仍以所跟随清真寺公布的实际安排为准。
 
 一句话总结：页面上的钟点是窗口的边界，主画面告诉用户当前处在哪个窗口、还剩多久。
 
@@ -86,11 +86,11 @@ pio device monitor --port /dev/cu.usbmodemXXXX --baud 115200
 4. 点击 `Check and save`。联网与校时成功后，设备保存 Wi-Fi 并自动重启。
 5. 设备屏幕自动进入 `SALAH SETTINGS` 原生触摸菜单，并先用公网出口 IP 估算城市、经纬度和 UTC 偏移。
 6. 进入 `LOCATION` 核对地点。点经纬度数值可打开数字键盘精确输入，左右按钮可按 0.1° 调整；时区支持 ±15 分钟和 ±1 小时。
-7. 进入 `CALCULATION` 选择计算机构，以及 `Standard` 或 `Hanafi` Asr 规则。中国默认使用 `Muslim World League + Hanafi`。
+7. 进入 `CALCULATION`，在分页列表中选择计算机构或 Custom 规则，再选择 `Standard` 或 `Hanafi` Asr 规则。中国默认使用 `MWL + Hanafi`。
 8. 进入 `MINUTE ADJUSTMENTS`，分别为七个时间做 ±30 分钟微调；按需开启 `PRAYER REMINDER`。
 9. 点击 `SAVE & START`。设备会先验证当天能否得到完整时间表，再保存并显示主页面。
 
-公网 IP 只能估算大致地点，所以自动结果需要在设备屏幕上核对。所有礼拜设置最终保存在 NVS。正常运行时从主页面底部向上滑可再次打开设备原生设置；设置完成后从顶部向下滑会先验证并保存，再返回主页面。在原生菜单中点 `WI-FI SETUP` 可重新进入热点配网。
+公网 IP 只能估算大致地点，所以自动结果需要在设备屏幕上核对。所有礼拜设置最终保存在 NVS。正常运行时从主页面底部向上滑可再次打开设备原生设置；设置完成后从顶部向下滑会先验证并保存，再返回主页面。在原生菜单中点 `WI-FI SETUP` 可重新进入热点配网；点设备屏幕上的 `BACK TO SETTINGS`，或从左侧边缘向中间滑动，会关闭热点并继续使用原来保存的 Wi-Fi。
 
 一句话总结：手机只负责让设备联网，礼拜规则全部在设备触摸屏上完成。
 
@@ -116,7 +116,7 @@ power=deep_sleep wake_button=4 wake_orientation=7 orientation_enabled=1 wake_tou
 
 重新启动时，`wake_source` 会显示 `timer`、`button` 或 `orientation`。设备醒着时会看到 `input=active idle_timeout_ms=180000`，表示触摸和姿态正在持续监听。无操作满三分钟时会记录 `input=inactive reason=idle_timeout idle_ms=180000 result=sleep`，随后进入深度睡眠。
 
-设备原生设置可从顶部向下滑来保存并关闭；从左侧边缘向页面中部滑动会返回上一级，并保留尚未保存的设置草稿。设置主页不会被左滑直接关闭。保存或取消后会直接返回礼拜页面，并记录 `settings=closed ... mode=in_place`。仅当时区发生变化时，设备才会在重绘前重新同步网络时间。
+设备原生设置可从顶部向下滑来保存并关闭；从左侧边缘向页面中部滑动会返回上一级，并保留尚未保存的设置草稿。设置主页不会被左滑直接关闭。保存或取消后会直接返回礼拜页面，并记录 `settings=closed ... mode=in_place`。Wi-Fi 配网从日常设置进入时提供设备端返回按钮和左侧返回手势，返回后重新打开原生设置并保留原有 Wi-Fi。仅当时区发生变化时，设备才会在重绘前重新同步网络时间。
 
 Location 页面会使用已保存的 Wi-Fi 自动估算当前城市、国家、经纬度和时区，并覆盖之前手动填写的坐标。坐标键盘的 `DELETE` 清空全部输入，`BACK` 每次删除一个字符，`OK` 确认输入。
 
@@ -154,7 +154,7 @@ bash tools/run_host_tests.sh
 成功时会看到：
 
 ```text
-[host-test] PASS 22/22
+[host-test] PASS 25/25
 ```
 
 测试覆盖 HTTP 请求头容量、Wi-Fi 网页职责、Wi-Fi 列表和手动输入、设备最小字号策略、粗体与常规字重、首次设置完成入口、原生设置页持续停留策略、原生设置页触摸区域、横竖屏边缘滑动、外部供电持续输入窗口、GT911 四方向配置、横竖屏花纹安全区与左右视觉重量、横屏顶部信息居中规则、经纬度本地计算、Hanafi Asr、七项微调、Qiyam 公式、跨午夜礼拜窗口、页面绘制保护、屏幕方向、深睡唤醒准备、DNS、Wi-Fi 扫描、地区建议以及固件不编译远程礼拜表管线的策略检查。
@@ -180,10 +180,13 @@ g++ -std=c++17 -Isrc/prayer -Isrc/storage -Isrc/ui tools/render_ui_preview.cpp s
 /tmp/sticky_salah_ui_preview portrait schedule-sleep /tmp/sticky_salah_sleep_portrait.pgm
 /tmp/sticky_salah_ui_preview landscape schedule-sleep /tmp/sticky_salah_sleep_landscape.pgm
 /tmp/sticky_salah_ui_preview portrait setup /tmp/sticky_salah_setup.pgm
+/tmp/sticky_salah_ui_preview portrait setup-return /tmp/sticky_salah_setup_return.pgm
 /tmp/sticky_salah_ui_preview portrait settings-main /tmp/sticky_salah_settings.pgm
 /tmp/sticky_salah_ui_preview portrait settings-main-first-time /tmp/sticky_salah_first_time.pgm
 /tmp/sticky_salah_ui_preview portrait settings-location /tmp/sticky_salah_location.pgm
 /tmp/sticky_salah_ui_preview portrait settings-calculation /tmp/sticky_salah_calculation.pgm
+/tmp/sticky_salah_ui_preview portrait settings-methods /tmp/sticky_salah_methods.pgm
+/tmp/sticky_salah_ui_preview portrait settings-custom /tmp/sticky_salah_custom.pgm
 /tmp/sticky_salah_ui_preview portrait settings-adjustments /tmp/sticky_salah_adjustments.pgm
 ```
 

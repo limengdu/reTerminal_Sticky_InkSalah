@@ -219,7 +219,10 @@ bool portal_self_test()
 }  // namespace
 
 esp_err_t provisioning_portal_run(const SalahSettings *existing_settings,
-                                  SalahSettings &saved_settings)
+                                  SalahSettings &saved_settings,
+                                  ProvisioningPortalExit &exit,
+                                  ProvisioningPortalCancelCheck cancel_check,
+                                  void *cancel_context)
 {
     app_log_register_tag(kTag);
     PortalContext context = {};
@@ -280,12 +283,25 @@ esp_err_t provisioning_portal_run(const SalahSettings *existing_settings,
     STICKY_LOGI(kTag,
                 "portal=self_test address=http://192.168.4.1/health result=ok");
     STICKY_LOGI(kTag, "portal=ready address=http://192.168.4.1/ result=ok");
-    while (!context.saved.load(std::memory_order_acquire)) {
+    exit = ProvisioningPortalExit::Cancelled;
+    while (true) {
+        if (context.saved.load(std::memory_order_acquire)) {
+            exit = ProvisioningPortalExit::Saved;
+            break;
+        }
+        if (cancel_check != nullptr && cancel_check(cancel_context)) {
+            STICKY_LOGI(kTag, "portal=closed reason=device_back result=ok");
+            break;
+        }
         vTaskDelay(pdMS_TO_TICKS(100));
     }
-    vTaskDelay(pdMS_TO_TICKS(750));
+    if (exit == ProvisioningPortalExit::Saved) {
+        vTaskDelay(pdMS_TO_TICKS(750));
+    }
     captive_dns_server_stop();
     httpd_stop(server);
-    saved_settings = context.settings;
+    if (exit == ProvisioningPortalExit::Saved) {
+        saved_settings = context.settings;
+    }
     return ESP_OK;
 }

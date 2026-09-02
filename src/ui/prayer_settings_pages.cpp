@@ -9,12 +9,7 @@
 
 namespace {
 
-constexpr const char *kMethodNames[] = {
-    "KARACHI", "ISNA", "MWL", "UMM AL-QURA",
-    "EGYPT", "GULF", "MUIS", "DIYANET",
-};
-
-constexpr uint8_t kMethodValues[] = {1U, 2U, 3U, 4U, 5U, 8U, 11U, 13U};
+constexpr size_t kMethodsPerPage = 5U;
 
 constexpr const char *kAdjustmentNames[kPrayerAdjustmentCount] = {
     "FAJR", "SUNRISE", "DHUHR", "ASR", "MAGHRIB", "ISHA", "QIYAM",
@@ -226,13 +221,38 @@ void render_calculation(Canvas &canvas,
     page_base(canvas, "CALCULATION", "CHOOSE THE STANDARD YOU FOLLOW");
     row(canvas, 150, "CALCULATION METHOD",
         settings_method_short_name(settings.calculation_method));
-    centered(canvas, 240, 278, "ASR JURISTIC METHOD", 2,
+    const CalculationMethodDefinition *definition =
+        settings_calculation_method_by_id(settings.calculation_method);
+    char rule[40] = {};
+    if (settings.calculation_method == kCalculationMethodCustomAngles) {
+        std::snprintf(rule, sizeof(rule), "FAJR %.1f / ISHA %.1f DEG",
+                      settings.custom_fajr_angle_tenths / 10.0,
+                      settings.custom_isha_angle_tenths / 10.0);
+    } else if (settings.calculation_method ==
+               kCalculationMethodCustomInterval) {
+        std::snprintf(rule, sizeof(rule), "FAJR %.1f / ISHA +%u MIN",
+                      settings.custom_fajr_angle_tenths / 10.0,
+                      static_cast<unsigned>(
+                          settings.custom_isha_interval_minutes));
+    } else if (definition != nullptr &&
+               definition->isha_interval_minutes > 0U) {
+        std::snprintf(rule, sizeof(rule), "FAJR %.1f / ISHA +%u MIN",
+                      definition->fajr_angle_tenths / 10.0,
+                      static_cast<unsigned>(
+                          definition->isha_interval_minutes));
+    } else if (definition != nullptr) {
+        std::snprintf(rule, sizeof(rule), "FAJR %.1f / ISHA %.1f DEG",
+                      definition->fajr_angle_tenths / 10.0,
+                      definition->isha_angle_tenths / 10.0);
+    }
+    centered(canvas, 240, 244, rule, 2);
+    centered(canvas, 240, 296, "ASR JURISTIC METHOD", 2,
              GrayLevel::Black, TextWeight::Bold);
-    button(canvas, 34, 320, 198, 100, "STANDARD",
+    button(canvas, 34, 338, 198, 100, "STANDARD",
            settings.asr_school == 0U, 2);
-    button(canvas, 248, 320, 198, 100, "HANAFI",
+    button(canvas, 248, 338, 198, 100, "HANAFI",
            settings.asr_school == 1U, 2);
-    centered(canvas, 240, 448, "ASR ONLY; OTHER TIMES STAY THE SAME", 2);
+    centered(canvas, 240, 466, "ASR ONLY; OTHER TIMES STAY THE SAME", 2);
     button(canvas, 34, 670, 412, 58, "BACK", false, 2);
     footer_status(canvas, state);
 }
@@ -241,12 +261,64 @@ void render_method_list(Canvas &canvas,
                         const SalahSettings &settings,
                         const DeviceSettingsUiState &state)
 {
-    page_base(canvas, "METHOD", "FAJR AND ISHA TWILIGHT STANDARD");
-    for (size_t index = 0U; index < 8U; ++index) {
-        const int y = 112 + static_cast<int>(index) * 65;
-        button(canvas, 34, y, 412, 56, kMethodNames[index],
-               settings.calculation_method == kMethodValues[index], 2);
+    const size_t method_count = settings_calculation_method_count();
+    const size_t page_count =
+        (method_count + kMethodsPerPage - 1U) / kMethodsPerPage;
+    const size_t page = std::min<size_t>(state.method_page,
+                                        page_count - 1U);
+    char subtitle[48] = {};
+    std::snprintf(subtitle, sizeof(subtitle),
+                  "PAGE %u OF %u / SELECT A STANDARD",
+                  static_cast<unsigned>(page + 1U),
+                  static_cast<unsigned>(page_count));
+    page_base(canvas, "METHOD", subtitle);
+    const size_t first = page * kMethodsPerPage;
+    for (size_t slot = 0U; slot < kMethodsPerPage; ++slot) {
+        const CalculationMethodDefinition *definition =
+            settings_calculation_method_at(first + slot);
+        if (definition == nullptr) {
+            break;
+        }
+        const int y = 118 + static_cast<int>(slot) * 88;
+        button(canvas, 34, y, 412, 72, definition->short_name,
+               settings.calculation_method == definition->id, 2,
+               TextWeight::Bold);
     }
+    button(canvas, 34, 580, 198, 58, "PREVIOUS",
+           false, 2);
+    button(canvas, 248, 580, 198, 58, "NEXT", false, 2);
+    button(canvas, 34, 670, 412, 58, "BACK", false, 2);
+    footer_status(canvas, state);
+}
+
+void render_custom_method(Canvas &canvas,
+                          const SalahSettings &settings,
+                          const DeviceSettingsUiState &state)
+{
+    const bool interval = settings.calculation_method ==
+                          kCalculationMethodCustomInterval;
+    page_base(canvas, interval ? "CUSTOM INTERVAL" : "CUSTOM ANGLES",
+              "TAP A VALUE TO ENTER IT");
+    char value[24] = {};
+    std::snprintf(value, sizeof(value), "%.1f DEG",
+                  settings.custom_fajr_angle_tenths / 10.0);
+    row(canvas, 150, "FAJR ANGLE", value);
+    if (interval) {
+        std::snprintf(value, sizeof(value), "%u MIN",
+                      static_cast<unsigned>(
+                          settings.custom_isha_interval_minutes));
+        row(canvas, 260, "ISHA AFTER MAGHRIB", value);
+    } else {
+        std::snprintf(value, sizeof(value), "%.1f DEG",
+                      settings.custom_isha_angle_tenths / 10.0);
+        row(canvas, 260, "ISHA ANGLE", value);
+    }
+    centered(canvas, 240, 382,
+             interval ? "ISHA USES MINUTES AFTER MAGHRIB"
+                      : "ANGLES DESCRIBE TWILIGHT",
+             2);
+    button(canvas, 34, 560, 412, 76, "USE THIS METHOD",
+           true, 2, TextWeight::Bold);
     button(canvas, 34, 670, 412, 58, "BACK", false, 2);
     footer_status(canvas, state);
 }
@@ -275,13 +347,25 @@ void render_editor(Canvas &canvas,
                    const DeviceSettingsUiState &state)
 {
     const bool latitude = state.page == DeviceSettingsPage::LatitudeEditor;
-    page_base(canvas, latitude ? "EDIT LATITUDE" : "EDIT LONGITUDE",
-              latitude ? "VALID RANGE -90 TO 90" : "VALID RANGE -180 TO 180");
+    const bool longitude = state.page == DeviceSettingsPage::LongitudeEditor;
+    const bool fajr = state.page == DeviceSettingsPage::CustomFajrEditor;
+    const bool custom_isha = state.page == DeviceSettingsPage::CustomIshaEditor;
+    const char *title = latitude ? "EDIT LATITUDE"
+                        : longitude ? "EDIT LONGITUDE"
+                        : fajr ? "EDIT FAJR ANGLE"
+                               : "EDIT ISHA VALUE";
+    const char *subtitle = latitude ? "VALID RANGE -90 TO 90"
+                           : longitude ? "VALID RANGE -180 TO 180"
+                           : custom_isha ? "ANGLE 1-30 / INTERVAL 1-240"
+                                         : "VALID ANGLE 1.0 TO 30.0";
+    page_base(canvas, title, subtitle);
     button(canvas, 34, 120, 412, 72,
            state.editor_value[0] == '\0' ? "0" : state.editor_value,
            false, 3);
-    constexpr const char *keys[] = {
-        "1", "2", "3", "4", "5", "6", "7", "8", "9", "+/-", "0", ".",
+    const bool coordinate_editor = latitude || longitude;
+    const char *keys[] = {
+        "1", "2", "3", "4", "5", "6", "7", "8", "9",
+        coordinate_editor ? "+/-" : "00", "0", ".",
     };
     for (size_t index = 0U; index < 12U; ++index) {
         const int column = static_cast<int>(index % 3U);
@@ -305,7 +389,8 @@ bool inside(int x, int y, int left, int top, int right, int bottom)
 
 DeviceSettingsAction prayer_settings_action_at(DeviceSettingsPage page,
                                                 int x,
-                                                int y)
+                                                int y,
+                                                uint8_t method_page)
 {
     if (x < 0 || x >= 480 || y < 0 || y >= 800) {
         return {};
@@ -333,15 +418,29 @@ DeviceSettingsAction prayer_settings_action_at(DeviceSettingsPage page,
         if (inside(x, y, 34, 670, 446, 728)) return {DeviceSettingsActionType::Back};
     } else if (page == DeviceSettingsPage::Calculation) {
         if (inside(x, y, 34, 150, 446, 226)) return {DeviceSettingsActionType::SelectMethod, -1};
-        if (inside(x, y, 34, 320, 232, 420)) return {DeviceSettingsActionType::SelectStandard};
-        if (inside(x, y, 248, 320, 446, 420)) return {DeviceSettingsActionType::SelectHanafi};
+        if (inside(x, y, 34, 338, 232, 438)) return {DeviceSettingsActionType::SelectStandard};
+        if (inside(x, y, 248, 338, 446, 438)) return {DeviceSettingsActionType::SelectHanafi};
         if (inside(x, y, 34, 670, 446, 728)) return {DeviceSettingsActionType::Back};
     } else if (page == DeviceSettingsPage::MethodList) {
-        for (int index = 0; index < 8; ++index) {
-            if (inside(x, y, 34, 112 + index * 65, 446, 168 + index * 65)) {
-                return {DeviceSettingsActionType::SelectMethod, kMethodValues[index]};
+        const size_t first = static_cast<size_t>(method_page) *
+                             kMethodsPerPage;
+        for (size_t slot = 0U; slot < kMethodsPerPage; ++slot) {
+            const CalculationMethodDefinition *definition =
+                settings_calculation_method_at(first + slot);
+            const int top = 118 + static_cast<int>(slot) * 88;
+            if (definition != nullptr &&
+                inside(x, y, 34, top, 446, top + 72)) {
+                return {DeviceSettingsActionType::SelectMethod,
+                        definition->id};
             }
         }
+        if (inside(x, y, 34, 580, 232, 638)) return {DeviceSettingsActionType::PreviousMethodPage};
+        if (inside(x, y, 248, 580, 446, 638)) return {DeviceSettingsActionType::NextMethodPage};
+        if (inside(x, y, 34, 670, 446, 728)) return {DeviceSettingsActionType::Back};
+    } else if (page == DeviceSettingsPage::CustomMethod) {
+        if (inside(x, y, 34, 150, 446, 226)) return {DeviceSettingsActionType::EditCustomFajr};
+        if (inside(x, y, 34, 260, 446, 336)) return {DeviceSettingsActionType::EditCustomIsha};
+        if (inside(x, y, 34, 560, 446, 636)) return {DeviceSettingsActionType::FinishCustomMethod};
         if (inside(x, y, 34, 670, 446, 728)) return {DeviceSettingsActionType::Back};
     } else if (page == DeviceSettingsPage::Adjustments) {
         for (int index = 0; index < static_cast<int>(kPrayerAdjustmentCount); ++index) {
@@ -356,7 +455,14 @@ DeviceSettingsAction prayer_settings_action_at(DeviceSettingsPage page,
             const int row_index = index / 3;
             if (inside(x, y, 34 + column * 138, 220 + row_index * 88,
                        158 + column * 138, 292 + row_index * 88)) {
-                if (index == 9) return {DeviceSettingsActionType::EditorSign};
+                if (index == 9) {
+                    const bool coordinate_editor =
+                        page == DeviceSettingsPage::LatitudeEditor ||
+                        page == DeviceSettingsPage::LongitudeEditor;
+                    return {coordinate_editor
+                                ? DeviceSettingsActionType::EditorSign
+                                : DeviceSettingsActionType::EditorDoubleZero};
+                }
                 if (index == 11) return {DeviceSettingsActionType::EditorDot};
                 return {DeviceSettingsActionType::EditorDigit,
                         index == 10 ? 0 : index + 1};
@@ -374,9 +480,14 @@ DeviceSettingsPage prayer_settings_parent_page(DeviceSettingsPage page)
     switch (page) {
     case DeviceSettingsPage::MethodList:
         return DeviceSettingsPage::Calculation;
+    case DeviceSettingsPage::CustomMethod:
+        return DeviceSettingsPage::MethodList;
     case DeviceSettingsPage::LatitudeEditor:
     case DeviceSettingsPage::LongitudeEditor:
         return DeviceSettingsPage::Location;
+    case DeviceSettingsPage::CustomFajrEditor:
+    case DeviceSettingsPage::CustomIshaEditor:
+        return DeviceSettingsPage::CustomMethod;
     case DeviceSettingsPage::Location:
     case DeviceSettingsPage::Calculation:
     case DeviceSettingsPage::Adjustments:
@@ -401,11 +512,16 @@ void prayer_settings_render(Canvas &canvas,
     case DeviceSettingsPage::MethodList:
         render_method_list(canvas, settings, state);
         break;
+    case DeviceSettingsPage::CustomMethod:
+        render_custom_method(canvas, settings, state);
+        break;
     case DeviceSettingsPage::Adjustments:
         render_adjustments(canvas, settings, state);
         break;
     case DeviceSettingsPage::LatitudeEditor:
     case DeviceSettingsPage::LongitudeEditor:
+    case DeviceSettingsPage::CustomFajrEditor:
+    case DeviceSettingsPage::CustomIshaEditor:
         render_editor(canvas, state);
         break;
     case DeviceSettingsPage::Main:
