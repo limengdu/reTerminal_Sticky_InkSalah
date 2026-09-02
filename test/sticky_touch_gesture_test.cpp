@@ -11,6 +11,12 @@ int main()
                {680, 455, 676, 260, 540}, 800, 480) ==
            StickyVerticalSwipe::UpFromBottom);
     assert(sticky_touch_classify_vertical_swipe(
+               {240, 560, 420, 260, 620}, 480, 800) ==
+           StickyVerticalSwipe::UpFromBottom);
+    assert(sticky_touch_classify_vertical_swipe(
+               {650, 330, 470, 50, 610}, 800, 480) ==
+           StickyVerticalSwipe::UpFromBottom);
+    assert(sticky_touch_classify_vertical_swipe(
                {220, 42, 224, 310, 510}, 480, 800) ==
            StickyVerticalSwipe::DownFromTop);
     assert(sticky_touch_classify_vertical_swipe(

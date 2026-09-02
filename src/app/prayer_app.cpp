@@ -256,6 +256,16 @@ PrayerInputResult wait_for_prayer_input(Canvas &canvas,
                 }
                 return PrayerInputResult::SettingsRequested;
             }
+            STICKY_LOGI(kTag,
+                        "settings=swipe direction=unmatched start_x=%u start_y=%u end_x=%u end_y=%u duration_ms=%u rotation=%u result=ignored",
+                        static_cast<unsigned>(interaction.start_x),
+                        static_cast<unsigned>(interaction.start_y),
+                        static_cast<unsigned>(interaction.end_x),
+                        static_cast<unsigned>(interaction.end_y),
+                        static_cast<unsigned>(
+                            interaction.ended_at_ms -
+                            interaction.started_at_ms),
+                        static_cast<unsigned>(canvas.rotation()));
         }
 
         if (imu_started) {
