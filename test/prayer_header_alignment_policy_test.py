@@ -15,3 +15,10 @@ assets = (root / "tools/generate_inksalah_assets.py").read_text()
 assert 'ASSETS / "prayer-original.png"' in assets
 assert 'ASSETS / "setup-original.png"' in assets
 assert 'lanterns)' in assets
+assert 'landscape.paste(scaled(arch, 384), (20, 8))' in assets
+assert 'landscape.paste(scaled(arch, 384), (404, 8))' in assets
+assert 'const int city_center = center' in header
+assert 'inksalah_location_asset()' in header
+assert 'inksalah_status_gear_asset()' in header
+assert 'canvas.set_prayer_header(true)' in source
+assert '"Next: %s' not in source

@@ -36,6 +36,7 @@ idf_component_register(
         "storage/settings_store.cpp"
         "ui/arabic_prayer_assets.cpp"
         "ui/battery_status_overlay.cpp"
+        "ui/battery_status_render.cpp"
         "ui/battery_status_overlay_theme.cpp"
         "ui/canvas.cpp"
         "ui/font.cpp"

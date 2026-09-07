@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Prepare monochrome backgrounds and native-sized icons for the PDF design."""
 from pathlib import Path
-from PIL import Image, ImageDraw, ImageOps
+from PIL import Image, ImageOps
 
 ROOT = Path(__file__).resolve().parents[1]
 ASSETS = ROOT / "assets/ui"
@@ -39,8 +39,8 @@ def main():
     portrait = Image.open(ASSETS / "prayer-original.png").convert("L")
     setup = Image.open(ASSETS / "setup-original.png").convert("L")
     landscape = Image.new("L", (800, 480), 0)
-    landscape.paste(scaled(arch, 390), (8, 30))
-    ImageDraw.Draw(landscape).rounded_rectangle((412, 110, 777, 466), radius=26, fill=255)
+    landscape.paste(scaled(arch, 384), (20, 8))
+    landscape.paste(scaled(arch, 384), (404, 8))
     emit("islamic_background_asset.cpp", [("kPrayer", "islamic_prayer_background_asset", portrait)])
     emit("islamic_landscape_background_asset.cpp", [("kLandscape", "islamic_landscape_background_asset", landscape)])
     lanterns = Image.open(ASSETS / "lanterns-source.png").convert("L")
@@ -51,6 +51,9 @@ def main():
         ("kLanterns", "inksalah_lantern_asset", lanterns),
         ("kBook", "inksalah_book_asset", scaled(book, 34)),
         ("kGear", "inksalah_gear_asset", scaled(gear, 28)),
+        ("kStatusGear", "inksalah_status_gear_asset", scaled(gear, 22)),
+        ("kLocation", "inksalah_location_asset", scaled(Image.open(ASSETS / "location-source.png"), 18)),
+        ("kClock", "inksalah_clock_asset", scaled(Image.open(ASSETS / "clock-source.png"), 24)),
     ])
     print("Generated INKSALAH artwork at native display sizes")
 

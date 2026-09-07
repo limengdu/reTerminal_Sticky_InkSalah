@@ -29,7 +29,15 @@ int main()
     assert(Canvas::text_width(fitted, 22, TextWeight::Bold) <= 145);
     for (int slot = 0; slot < 7; ++slot) {
         auto asset = arabic_time_asset(static_cast<PrayerTimeSlot>(slot));
-        assert(asset.data != nullptr && asset.width > 20 && asset.height >= 18);
+        assert(asset.data != nullptr && asset.width > 20 && asset.height >= 14);
+    }
+    for (auto prayer : {PrayerId::Fajr, PrayerId::Dhuhr, PrayerId::Asr,
+                        PrayerId::Maghrib, PrayerId::Isha}) {
+        const auto row = arabic_prayer_asset(prayer);
+        const auto portrait = arabic_prayer_hero_asset(prayer, true);
+        const auto landscape = arabic_prayer_hero_asset(prayer, false);
+        assert(row.width < portrait.width && portrait.width < landscape.width);
+        assert(row.height < portrait.height && portrait.height < landscape.height);
     }
     for (auto asset : {inksalah_book_asset(), inksalah_gear_asset()}) {
         size_t pixels = 0;
@@ -63,6 +71,7 @@ int main()
         canvas.set_rotation(rotation);
         settings.qiyam_visible = false;
         prayer_page_render_schedule(canvas, model);
+        assert(canvas.prayer_header());
         assert(canvas.pixel_at(0, 30) == GrayLevel::Black);
         assert(canvas.pixel_at(canvas.width() / 2, 185) == GrayLevel::Black);
         const std::vector<uint8_t> six = storage;
@@ -74,6 +83,23 @@ int main()
         model.window.between_prayers = false;
         assert(prayer_page_settings_action_at(canvas.width() - 40, 55, canvas.width(), canvas.height()));
         assert(!prayer_page_settings_action_at(100, 100, canvas.width(), canvas.height()));
+        assert(!prayer_page_settings_action_at(canvas.width() / 2, 35,
+                                               canvas.width(), canvas.height()));
+        std::strcpy(settings.city, "San Francisco Bay Area");
+        const uint8_t methods[] = {0U, 13U, 15U, kCalculationMethodCustomAngles};
+        for (uint8_t method : methods) {
+            settings.calculation_method = method;
+            prayer_page_render_schedule(canvas, model);
+        }
+        for (auto prayer : {PrayerId::Fajr, PrayerId::Dhuhr, PrayerId::Asr,
+                            PrayerId::Maghrib, PrayerId::Isha}) {
+            model.window.prayer = prayer;
+            model.window.start_minutes = 1263;
+            model.window.end_minutes = 1739;
+            model.window.minutes_remaining = 476;
+            prayer_page_render_schedule(canvas, model);
+        }
+        model.window.prayer = PrayerId::Dhuhr;
         for (size_t i = 0; i < 16; ++i) {
             assert(storage[i] == 0xABU);
             assert(storage[size + 16 + i] == 0xABU);
@@ -85,6 +111,7 @@ int main()
         assert(Canvas::text_width(text, 20) <= 328);
     }
     prayer_page_render_setup(canvas, "Sticky-Salah-A1B2", "sticky-salah", false);
+    assert(!canvas.prayer_header());
     const std::vector<uint8_t> first_setup = storage;
     assert(!prayer_page_setup_back_action_at(240, 690, false));
     prayer_page_render_setup(canvas, "Sticky-Salah-A1B2", "sticky-salah", true);

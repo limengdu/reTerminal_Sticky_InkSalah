@@ -24,9 +24,11 @@ let labels = [
     PrayerLabel(enumName: "Qiyam", symbolName: "Qiyam", text: "\u{0642}\u{064A}\u{0627}\u{0645}"),
 ]
 
-func render(_ text: String) -> PackedBitmap {
-    let canvasWidth = 240
-    let canvasHeight = 52
+// Shapes Arabic text at the requested native size and packs the visible pixels.
+// 以指定原生字号排版阿拉伯语，并打包可见像素。
+func render(_ text: String, size: CGFloat = 20) -> PackedBitmap {
+    let canvasWidth = 320
+    let canvasHeight = 90
     guard let bitmap = NSBitmapImageRep(
         bitmapDataPlanes: nil,
         pixelsWide: canvasWidth,
@@ -50,7 +52,7 @@ func render(_ text: String) -> PackedBitmap {
     let paragraph = NSMutableParagraphStyle()
     paragraph.alignment = .center
     paragraph.baseWritingDirection = .rightToLeft
-    guard let font = NSFont(name: "GeezaPro", size: 24) else {
+    guard let font = NSFont(name: size > 24 ? "GeezaPro-Bold" : "GeezaPro", size: size) else {
         fatalError("Geeza Pro is required for shaped Arabic labels")
     }
     let attributes: [NSAttributedString.Key: Any] = [
@@ -59,7 +61,7 @@ func render(_ text: String) -> PackedBitmap {
         .paragraphStyle: paragraph,
     ]
     NSString(string: text).draw(
-        in: NSRect(x: 0, y: 7, width: canvasWidth, height: 40),
+        in: NSRect(x: 0, y: 7, width: canvasWidth, height: 80),
         withAttributes: attributes
     )
     context.flushGraphics()
@@ -125,6 +127,9 @@ guard CommandLine.arguments.count == 2 else {
 }
 
 let rendered = labels.map { ($0, render($0.text)) }
+let prayerLabels = labels.filter { $0.enumName != "Sunrise" && $0.enumName != "Qiyam" }
+let portraitHero = prayerLabels.map { ($0, render($0.text, size: 28)) }
+let landscapeHero = prayerLabels.map { ($0, render($0.text, size: 40)) }
 var output = """
 #include "arabic_prayer_assets.h"
 
@@ -136,12 +141,20 @@ for (label, bitmap) in rendered {
     output += byteLines(bitmap.bytes)
     output += "\n};\n\n"
 }
+for (suffix, group) in [("Portrait", portraitHero), ("Landscape", landscapeHero)] {
+    for (label, bitmap) in group {
+        output += "constexpr uint8_t k\(label.symbolName)\(suffix)[] = {\n"
+        output += byteLines(bitmap.bytes)
+        output += "\n};\n\n"
+    }
+}
 output += """
 }  // namespace
 
 ArabicPrayerAsset arabic_time_asset(PrayerTimeSlot prayer)
 {
     switch (prayer) {
+
 """
 for (label, bitmap) in rendered {
     output += "    case PrayerTimeSlot::\(label.enumName):\n"
@@ -165,6 +178,15 @@ ArabicPrayerAsset arabic_prayer_asset(PrayerId prayer)
     }
 }
 """
+
+output += "\nArabicPrayerAsset arabic_prayer_hero_asset(PrayerId prayer, bool portrait)\n{\n    switch (prayer) {\n"
+for ((label, small), (_, large)) in zip(portraitHero, landscapeHero)
+    where label.enumName != "Sunrise" && label.enumName != "Qiyam" {
+    output += "    case PrayerId::\(label.enumName):\n"
+    output += "        return portrait ? ArabicPrayerAsset{\(small.width)U, \(small.height)U, \(small.stride)U, k\(label.symbolName)Portrait}\n"
+    output += "                        : ArabicPrayerAsset{\(large.width)U, \(large.height)U, \(large.stride)U, k\(label.symbolName)Landscape};\n"
+}
+output += "    default: return {};\n    }\n}\n"
 
 try output.write(
     to: URL(fileURLWithPath: CommandLine.arguments[1]),

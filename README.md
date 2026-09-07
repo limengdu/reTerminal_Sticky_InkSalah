@@ -29,7 +29,7 @@ InkSalah turns the Seeed Studio reTerminal Sticky into a calm, always-visible Sa
 - **Local adjustment.** Apply an independent ±30 minute correction to each displayed time.
 - **Optional Qiyam.** Show or hide Qiyam without changing the Isha window.
 - **Native device settings.** Prayer configuration lives on the touchscreen; the captive portal is dedicated to Wi-Fi setup.
-- **Portrait and landscape layouts.** The IMU changes orientation after the device is physically rotated.
+- **Portrait and landscape layouts.** A single arch in portrait and paired arches in landscape frame the current prayer and daily schedule. The IMU changes orientation after the device is physically rotated.
 - **Designed for ePaper.** Fast interaction refreshes, persistent monochrome artwork, and a three-minute idle path into deep sleep.
 - **Roboto typography.** Native-sized regular and bold glyphs, AM/PM time badges, and connected Arabic prayer labels.
 - **Private by design.** Wi-Fi credentials and prayer settings stay in ESP32 NVS storage.
@@ -48,6 +48,8 @@ InkSalah turns the Seeed Studio reTerminal Sticky into a calm, always-visible Sa
 </table>
 
 The screenshots above are rendered by the same canvas and page code used by the firmware. They are not separate design mockups.
+
+The prayer header groups battery status on the left, location in the center, and the calculation method with a settings shortcut on the right. A crescent appears beside the battery during deep sleep. Wide method names use the available space for the institution name, and long labels are shortened visually while the full setting remains saved.
 
 ## Hardware target
 
@@ -125,7 +127,7 @@ The IP-based location result is an estimate. Confirm the coordinates and UTC off
 | Rotate the device | Switch between portrait and landscape after orientation settles |
 | Leave the device untouched for three minutes | Enter deep sleep with timer, button, and orientation wake sources |
 
-**Prayer Reminder** controls the optional buzzer at prayer boundaries. **Minute Adjustments → Show Qiyam** controls whether Qiyam appears in the schedule and night status; hiding it leaves Isha active until the next Fajr. The settings homepage contains Location, Calculation Method, Minute Adjustments, Prayer Reminder, and Wi-Fi Setup.
+**Prayer Reminder** controls the optional buzzer at prayer boundaries. **Minute Adjustments → Show Qiyam** controls whether Qiyam appears in the schedule; hiding it leaves Isha active until the next Fajr. The settings homepage contains Location, Calculation Method, Minute Adjustments, Prayer Reminder, and Wi-Fi Setup.
 
 The prayer screen uses 12-hour times with explicit **AM/PM** labels. The first-time setup screen offers **Save & Start**; subsequent settings sessions offer **Save & Exit** and **Discard & Exit**. **Back** in Wi-Fi setup returns to native settings using the saved network.
 
@@ -187,7 +189,7 @@ bash tools/run_host_tests.sh
 Expected result:
 
 ```text
-[host-test] PASS 26/26
+[host-test] PASS 27/27
 ```
 
 Build both firmware profiles before submitting a change:

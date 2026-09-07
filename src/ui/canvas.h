@@ -43,6 +43,11 @@ public:
 
     void clear(GrayLevel color = GrayLevel::White);
 
+    // Selects the status-bar placement for the current rendered page.
+    // 选择当前页面的状态栏位置。
+    void set_prayer_header(bool enabled) { prayer_header_ = enabled; }
+    bool prayer_header() const { return prayer_header_; }
+
     // Drawing primitives clip coordinates at the canvas boundary.
     // 以下绘图函数会自动裁剪超出画布边界的坐标。
     GrayLevel pixel_at(int x, int y) const;
@@ -88,4 +93,5 @@ private:
     uint8_t *buffer_;
     size_t buffer_size_;
     CanvasRotation rotation_ = CanvasRotation::Deg0;
+    bool prayer_header_ = false;
 };

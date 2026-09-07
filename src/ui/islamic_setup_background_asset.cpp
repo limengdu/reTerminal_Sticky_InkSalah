@@ -2325,6 +2325,24 @@ constexpr uint8_t kGear[] = {
     14,0,6,15,6,0,6,15,6,0,6,15,6,0,6,15,6,15,6,15,7,191,222,15,
     1,240,248,15,0,224,112,15,
 };
+
+constexpr uint8_t kStatusGear[] = {
+    3,135,3,7,207,131,12,120,195,8,0,195,12,0,195,12,0,195,24,0,99,112,248,59,
+    224,204,31,193,134,15,193,134,15,193,134,15,224,204,31,112,248,59,24,0,99,12,0,195,
+    12,0,195,8,0,195,12,120,195,7,207,131,3,135,3,
+};
+
+constexpr uint8_t kLocation[] = {
+    0,0,63,0,0,63,3,248,63,12,12,63,24,2,63,16,225,63,35,49,63,34,8,191,
+    36,8,191,36,8,191,38,9,191,34,17,63,17,227,63,24,2,63,8,4,63,4,8,63,
+    2,24,63,1,48,63,0,224,63,0,64,63,
+};
+
+constexpr uint8_t kClock[] = {
+    0,0,0,0,56,0,0,24,0,30,24,120,63,255,252,63,255,252,63,255,252,63,255,252,
+    63,231,252,31,231,248,31,239,248,31,231,248,31,225,248,31,255,248,31,255,248,31,255,240,
+    15,255,240,15,255,224,7,255,224,3,255,192,3,255,128,2,0,64,0,0,0,0,0,0,
+};
 }  // namespace
 
 IslamicBackgroundAsset islamic_setup_background_asset()
@@ -2345,4 +2363,19 @@ IslamicBackgroundAsset inksalah_book_asset()
 IslamicBackgroundAsset inksalah_gear_asset()
 {
     return {28U, 26U, 4U, kGear};
+}
+
+IslamicBackgroundAsset inksalah_status_gear_asset()
+{
+    return {22U, 21U, 3U, kStatusGear};
+}
+
+IslamicBackgroundAsset inksalah_location_asset()
+{
+    return {18U, 20U, 3U, kLocation};
+}
+
+IslamicBackgroundAsset inksalah_clock_asset()
+{
+    return {24U, 24U, 3U, kClock};
 }

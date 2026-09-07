@@ -35,39 +35,38 @@ void time_parts(uint16_t minutes, char time[6], const char *&period)
     period = hour < 12U ? "AM" : "PM";
 }
 
-void draw_clock(Canvas &canvas, int x, int y)
-{
-    canvas.fill_circle(x, y, 11);
-    canvas.fill_circle(x - 10, y - 10, 4);
-    canvas.fill_circle(x + 10, y - 10, 4);
-    canvas.draw_line(x, y - 7, x, y, GrayLevel::White);
-    canvas.draw_line(x, y, x + 5, y, GrayLevel::White);
-    canvas.draw_line(x - 5, y + 9, x - 8, y + 14);
-    canvas.draw_line(x + 5, y + 9, x + 8, y + 14);
-}
-
 void date_header(Canvas &canvas, const PrayerPageModel &model, bool portrait)
 {
     const int center = canvas.width() / 2;
-    const int city_center = portrait ? 347 : center;
-    const int city_width = portrait ? 145 : 580;
+    const int city_center = center;
+    const int city_width = portrait ? 132 : 300;
     char location[100] = {};
-    if (portrait) std::snprintf(location, sizeof(location), "%s", model.settings->city);
-    else std::snprintf(location, sizeof(location), "%s  /  Method: %s",
-                       model.settings->city,
-                       settings_method_short_name(model.settings->calculation_method));
-    ui::fitted_centered(canvas, city_center, portrait ? 35 : 8,
-                         location, city_width, portrait ? 22 : 20,
-                         TextWeight::Bold, GrayLevel::White);
-    if (portrait) {
-        char method[48] = {};
-        std::snprintf(method, sizeof(method), "Method: %s",
-                       settings_method_short_name(model.settings->calculation_method));
-        ui::fitted_centered(canvas, 347, 66, method, 170, 20,
-                             TextWeight::Regular, GrayLevel::White);
-    }
-    ui::bitmap(canvas, canvas.width() - 52, portrait ? 43 : 43,
-                inksalah_gear_asset(), GrayLevel::White);
+    const int status_y = 26;
+    const auto pin = inksalah_location_asset();
+    ui::fit(model.settings->city, location, sizeof(location), city_width - pin.width - 6,
+              20, TextWeight::Bold);
+    const int location_width = Canvas::text_width(location, 20, TextWeight::Bold);
+    const int location_left = city_center - (location_width + pin.width + 6) / 2;
+    ui::bitmap(canvas, location_left, status_y, pin, GrayLevel::White);
+    ui::centered(canvas, location_left + pin.width + 6 + location_width / 2,
+                  status_y, location, 20, TextWeight::Bold, GrayLevel::White);
+    char method[48] = {};
+    std::snprintf(method, sizeof(method), "Method: %s",
+                  settings_method_short_name(model.settings->calculation_method));
+    const int method_right = canvas.width() - 24;
+    const auto gear = inksalah_status_gear_asset();
+    const int method_width = portrait ? 146 : 210;
+    const int text_width = method_width - gear.width - 5;
+    if (Canvas::text_width(method, 20, TextWeight::Bold) > text_width)
+        std::snprintf(method, sizeof(method), "%s",
+                      settings_method_short_name(model.settings->calculation_method));
+    char fitted_method[48] = {};
+    ui::fit(method, fitted_method, sizeof(fitted_method), text_width, 20, TextWeight::Bold);
+    const int label_width = Canvas::text_width(fitted_method, 20, TextWeight::Bold);
+    const int method_left = method_right - label_width - 5 - gear.width;
+    ui::bitmap(canvas, method_left, status_y, gear, GrayLevel::White);
+    ui::centered(canvas, method_right - label_width / 2, status_y, fitted_method,
+                  20, TextWeight::Bold, GrayLevel::White);
     char date[80] = {};
     const unsigned month = model.today->date.month;
     std::snprintf(date, sizeof(date), "%02u %s, %04u (%.3s.)",
@@ -75,16 +74,17 @@ void date_header(Canvas &canvas, const PrayerPageModel &model, bool portrait)
                   month <= 12U ? kMonths[month] : "",
                   static_cast<unsigned>(model.today->date.year),
                   model.today->weekday);
-    ui::fitted_centered(canvas, center, portrait ? 115 : 39, date,
-                         portrait ? 432 : 650, portrait ? 26 : 24,
+    ui::fitted_centered(canvas, center, portrait ? 115 : 72, date,
+                         portrait ? 432 : 290, portrait ? 26 : 22,
                          TextWeight::Bold, GrayLevel::White);
     char hijri[80] = {};
     std::snprintf(hijri, sizeof(hijri), "%u %s, %u",
                   static_cast<unsigned>(model.today->hijri_day),
-                  prayer_hijri_month_name(model.today->hijri_month),
+                  model.today->hijri_month == 3U ? "Rabi ul Awal" :
+                    prayer_hijri_month_name(model.today->hijri_month),
                   static_cast<unsigned>(model.today->hijri_year));
-    ui::fitted_centered(canvas, center, portrait ? 156 : 74, hijri,
-                         portrait ? 420 : 620, 22,
+    ui::fitted_centered(canvas, center, portrait ? 156 : 103, hijri,
+                         portrait ? 420 : 360, portrait ? 22 : 20,
                          TextWeight::Regular, GrayLevel::White);
 }
 
@@ -103,89 +103,105 @@ void time_badge(Canvas &canvas, int x, int y, uint16_t minutes, int width, int h
                            y + (height - 20) / 2 + 2, period, 20, GrayLevel::White);
 }
 
-void time_range(Canvas &canvas, int center, int y, uint16_t start, uint16_t end)
+// Centers separately measured clock values and AM/PM labels in one capsule.
+// 将分别测量的钟点数字和 AM/PM 标签作为整体居中排入胶囊。
+void time_range(Canvas &canvas, int center, int y, uint16_t start, uint16_t end,
+                bool portrait)
 {
-    char first[12] = {}, last[12] = {}, range[32] = {};
-    prayer_page_format_time(start, first, sizeof(first));
-    prayer_page_format_time(end, last, sizeof(last));
-    std::snprintf(range, sizeof(range), "%s - %s", first, last);
-    ui::pill(canvas, center - 158, y, 316, 50, range, true, 26);
+    char first[6] = {}, last[6] = {};
+    const char *first_period = nullptr, *last_period = nullptr;
+    time_parts(start, first, first_period);
+    time_parts(end, last, last_period);
+    const char *parts[] = {first, first_period, "-", last, last_period};
+    const uint8_t size = portrait ? 28 : 32;
+    const uint8_t sizes[] = {size, 20, 20, size, 20};
+    const int width = portrait ? 268 : 288;
+    const int height = portrait ? 50 : 54;
+    int content_width = 0;
+    for (int index = 0; index < 5; ++index)
+        content_width += Canvas::text_width(parts[index], sizes[index], TextWeight::Bold);
+    content_width += 4 * 5;
+    canvas.fill_round_rect(center - width / 2, y, width, height, height / 2, GrayLevel::Black);
+    int x = center - content_width / 2;
+    for (int index = 0; index < 5; ++index) {
+        canvas.draw_text_sized(x, y + (height - sizes[index]) / 2, parts[index], sizes[index],
+                               GrayLevel::White, TextWeight::Bold);
+        x += Canvas::text_width(parts[index], sizes[index], TextWeight::Bold) + 5;
+    }
 }
 
 void hero(Canvas &canvas, const PrayerPageModel &model, bool portrait)
 {
-    const int center = portrait ? 240 : 203;
-    const int caption_y = portrait ? 268 : 192;
+    const int center = portrait ? 240 : 208;
+    const int caption_y = portrait ? 268 : 202;
     const bool between = model.window.between_prayers;
     ui::centered(canvas, center, caption_y,
-                  between ? "Between Prayers" : "Current Prayer", 20,
+                  between ? "Between Prayers" : "Current Prayer", portrait ? 20 : 26,
                   TextWeight::Regular, GrayLevel::DarkGray);
     const PrayerId prayer = between ? model.next.prayer : model.window.prayer;
     const auto slot = prayer_id_slot(prayer);
     const char *name = slot == PrayerTimeSlot::Count ? "" : kNames[static_cast<size_t>(slot)];
-    const ArabicPrayerAsset label = arabic_prayer_asset(prayer);
-    const int name_width = Canvas::text_width(name, 28, TextWeight::Bold);
+    const ArabicPrayerAsset label = arabic_prayer_hero_asset(prayer, portrait);
+    const uint8_t name_size = portrait ? 26 : 40;
+    const int name_width = Canvas::text_width(name, name_size, TextWeight::Bold);
     const int group_width = name_width + 12 + label.width;
-    const int name_y = caption_y + 29;
-    canvas.draw_text_sized(center - group_width / 2, name_y, name, 28,
+    const int name_y = portrait ? 296 : 242;
+    canvas.draw_text_sized(center - group_width / 2, name_y, name, name_size,
                            GrayLevel::Black, TextWeight::Bold);
     arabic(canvas, center - group_width / 2 + name_width + 12 + label.width / 2,
-           name_y + 2, label);
-    const int range_y = portrait ? 335 : 286;
+           name_y + (name_size - label.height) / 2, label);
+    const int range_y = portrait ? 330 : 304;
+    const int width = portrait ? 268 : 288;
     if (between) {
         char next_time[16] = {}, line[32] = {};
         prayer_page_format_time(model.next.time_minutes, next_time, sizeof(next_time));
         std::snprintf(line, sizeof(line), "Starts at %s", next_time);
-        ui::pill(canvas, center - 158, range_y, 316, 50, line, true, 26);
+        ui::pill(canvas, center - width / 2, range_y, width, portrait ? 50 : 54, line, true, 24);
     } else {
         time_range(canvas, center, range_y,
-                    model.window.start_minutes, model.window.end_minutes);
+                    model.window.start_minutes, model.window.end_minutes, portrait);
     }
     char remaining[28] = {};
     const uint16_t minutes = between ? model.next.minutes_until : model.window.minutes_remaining;
     std::snprintf(remaining, sizeof(remaining), "%uh %02um",
                   static_cast<unsigned>(minutes / 60U),
                   static_cast<unsigned>(minutes % 60U));
-    const int countdown_y = range_y + 59;
-    canvas.draw_round_rect(center - 158, countdown_y, 316, 49, 24);
-    draw_clock(canvas, center - 125, countdown_y + 24);
-    canvas.draw_text_sized(center - 99, countdown_y + 15, "Next in", 20,
-                           GrayLevel::Black, TextWeight::Bold);
-    ui::centered(canvas, center + 55, countdown_y + 10, remaining, 28, TextWeight::Bold);
-    if (!portrait && model.settings->qiyam_visible && model.window.qiyam_active)
-        ui::centered(canvas, center, 410, "Qiyam time", 20);
-    if (!portrait && !model.window.qiyam_active) {
-        char next_time[16] = {}, line[48] = {};
-        prayer_page_format_time(model.next.time_minutes, next_time, sizeof(next_time));
-        std::snprintf(line, sizeof(line), "Next: %s  %s", prayer_id_name(model.next.prayer), next_time);
-        ui::fitted_centered(canvas, center, 415, line, 310, 20);
-    }
+    const int countdown_y = portrait ? 388 : 366;
+    const int height = portrait ? 50 : 52;
+    const int remaining_size = portrait ? 28 : 32;
+    const auto clock = inksalah_clock_asset();
+    const int label_width = Canvas::text_width("Next in", 20, TextWeight::Bold);
+    const int content_width = clock.width + 16 + label_width + 10 +
+                              Canvas::text_width(remaining, remaining_size, TextWeight::Bold);
+    const int left = center - content_width / 2;
+    canvas.draw_round_rect(center - width / 2, countdown_y, width, height, height / 2);
+    canvas.draw_round_rect(center - width / 2 + 1, countdown_y + 1,
+                           width - 2, height - 2, height / 2 - 1);
+    ui::bitmap(canvas, left, countdown_y + (height - clock.height) / 2, clock);
+    canvas.draw_text_sized(left + clock.width + 16, countdown_y + (height - 20) / 2,
+                           "Next in", 20, GrayLevel::Black, TextWeight::Bold);
+    canvas.draw_text_sized(left + clock.width + 16 + label_width + 10,
+                           countdown_y + (height - remaining_size) / 2, remaining,
+                           remaining_size, GrayLevel::Black, TextWeight::Bold);
 }
 
 void times(Canvas &canvas, const PrayerPageModel &model, bool portrait)
 {
     const int count = model.settings->qiyam_visible ? 7 : 6;
-    const int step = portrait ? (count == 7 ? 48 : 54) : (count == 7 ? 46 : 53);
-    const int first_y = portrait ? (count == 7 ? 456 : 468) : 127;
-    const int name_right = portrait ? 226 : 530;
-    const int time_x = portrait ? 249 : 618;
+    const int step = portrait ? (count == 7 ? 48 : 54) : (count == 7 ? 45 : 52);
+    const int first_y = portrait ? (count == 7 ? 454 : 462) : 154;
+    const int name_right = portrait ? 222 : 570;
+    const int time_x = portrait ? 246 : 592;
     for (int index = 0; index < count; ++index) {
         const int y = first_y + index * step;
         const auto slot = static_cast<PrayerTimeSlot>(index);
-        const bool selected = (!model.window.between_prayers &&
-                               slot == prayer_id_slot(model.window.prayer)) ||
-                              (slot == PrayerTimeSlot::Qiyam && model.window.qiyam_active);
-        const uint8_t size = portrait ? (count == 7 ? 24 : 26) : 22;
-        const int text_y = portrait ? y : y + 11;
-        const int x = portrait ? name_right - Canvas::text_width(kNames[index], size)
-                               : 432;
-        canvas.draw_text_sized(x, text_y, kNames[index], size);
+        const uint8_t size = !portrait && count == 7 ? 22 : 24;
+        const int x = name_right - Canvas::text_width(kNames[index], size);
+        canvas.draw_text_sized(x, y, kNames[index], size);
         const ArabicPrayerAsset label = arabic_time_asset(slot);
-        arabic(canvas, portrait ? name_right - label.width / 2 : 576,
-               portrait ? y + size - 1 : y + 10, label);
+        arabic(canvas, name_right - label.width / 2, y + size - 1, label);
         time_badge(canvas, time_x, y, model.today->minutes[index],
-                    portrait ? 130 : 143, portrait ? 43 : 40);
-        if (selected) canvas.fill_circle(portrait ? 392 : 765, y + 20, 3);
+                    116, 43);
     }
 }
 
@@ -201,9 +217,8 @@ void prayer_page_format_time(uint16_t minutes, char *output, size_t capacity)
 
 bool prayer_page_settings_action_at(int x, int y, int width, int height)
 {
-    (void)height;
-    const int top = 34;
-    return x >= width - 62 && x < width - 12 && y >= top && y < top + 52;
+    const int left = width < height ? 304 : 560;
+    return x >= left && x < width - 16 && y >= 16 && y < 62;
 }
 
 void prayer_page_render_schedule(Canvas &canvas, const PrayerPageModel &model)
@@ -214,6 +229,7 @@ void prayer_page_render_schedule(Canvas &canvas, const PrayerPageModel &model)
     }
     const bool portrait = canvas.width() < canvas.height();
     background(canvas, portrait ? islamic_prayer_background_asset() : islamic_landscape_background_asset());
+    canvas.set_prayer_header(true);
     date_header(canvas, model, portrait);
     hero(canvas, model, portrait);
     times(canvas, model, portrait);

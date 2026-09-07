@@ -7,6 +7,7 @@
 #include "prayer_pages.h"
 #include "prayer_settings_pages.h"
 #include "sleep_indicator.h"
+#include "battery_status_render.h"
 
 namespace {
 
@@ -50,7 +51,7 @@ int main(int argc, char **argv)
 {
     if (argc != 4) {
         std::fprintf(stderr,
-                     "Usage: render_ui_preview <landscape|portrait> <schedule|schedule-no-qiyam|schedule-sleep|setup|setup-return|error|settings-main|settings-main-first-time|settings-location|settings-calculation|settings-methods|settings-custom|settings-adjustments> <output.pgm>\n");
+                     "Usage: render_ui_preview <landscape|portrait> <schedule|schedule-no-qiyam|schedule-sleep|schedule-no-qiyam-sleep|schedule-long-header|schedule-between|schedule-night|schedule-maghrib|setup|setup-return|error|settings-main|settings-main-first-time|settings-location|settings-calculation|settings-methods|settings-custom|settings-adjustments|settings-editor> <output.pgm>\n");
         return 2;
     }
     const bool portrait = std::strcmp(argv[1], "portrait") == 0;
@@ -119,7 +120,12 @@ int main(int argc, char **argv)
                                  "RESTART THE DEVICE");
     } else if (std::strcmp(argv[2], "schedule") == 0 ||
                std::strcmp(argv[2], "schedule-no-qiyam") == 0 ||
-               std::strcmp(argv[2], "schedule-sleep") == 0) {
+               std::strcmp(argv[2], "schedule-sleep") == 0 ||
+               std::strcmp(argv[2], "schedule-no-qiyam-sleep") == 0 ||
+               std::strcmp(argv[2], "schedule-long-header") == 0 ||
+               std::strcmp(argv[2], "schedule-between") == 0 ||
+               std::strcmp(argv[2], "schedule-night") == 0 ||
+               std::strcmp(argv[2], "schedule-maghrib") == 0) {
         SalahSettings settings = {};
         settings_store_defaults(settings);
         settings.configured = true;
@@ -128,8 +134,12 @@ int main(int argc, char **argv)
         std::strcpy(settings.city, "Istanbul");
         settings.calculation_method = 13U;
         settings.asr_school = 1U;
-        settings.qiyam_visible =
-            std::strcmp(argv[2], "schedule-no-qiyam") != 0;
+        settings.qiyam_visible = std::strcmp(argv[2], "schedule") == 0 ||
+                                  std::strcmp(argv[2], "schedule-sleep") == 0;
+        if (std::strcmp(argv[2], "schedule-long-header") == 0) {
+            std::strcpy(settings.city, "San Francisco Bay Area");
+            settings.calculation_method = 15U;
+        }
         PrayerDay today = sample_day();
         PrayerPageModel model = {};
         model.settings = &settings;
@@ -138,8 +148,20 @@ int main(int argc, char **argv)
         model.window = {PrayerId::Dhuhr, 784U, 1002U, 154U};
         model.current_minutes = 848U;
         model.online = false;
+        if (std::strcmp(argv[2], "schedule-between") == 0) {
+            model.window.between_prayers = true;
+            model.next = {PrayerId::Dhuhr, 784U, 250U, false};
+        } else if (std::strcmp(argv[2], "schedule-night") == 0) {
+            model.window = {PrayerId::Isha, 1263U, 1739U, 380U};
+            model.next = {PrayerId::Fajr, 299U, 380U, true};
+        } else if (std::strcmp(argv[2], "schedule-maghrib") == 0) {
+            model.window = {PrayerId::Maghrib, 1173U, 1263U, 90U};
+            model.next = {PrayerId::Isha, 1263U, 90U, false};
+        }
         prayer_page_render_schedule(canvas, model);
-        if (std::strcmp(argv[2], "schedule-sleep") == 0) {
+        battery_status_render(canvas, true, 100, true, false);
+        if (std::strcmp(argv[2], "schedule-sleep") == 0 ||
+            std::strcmp(argv[2], "schedule-no-qiyam-sleep") == 0) {
             sleep_indicator_render(canvas);
         }
     } else {

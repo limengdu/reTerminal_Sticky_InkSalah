@@ -29,6 +29,7 @@ InkSalah 将 Seeed Studio reTerminal Sticky 变成一块安静、常显的礼拜
 - **支持当地微调。** 七个时间都可独立调整 ±30 分钟，方便与当地清真寺时刻表对齐。
 - **Qiyam 可选显示。** 关闭 Qiyam 后，Isha 窗口仍然持续到次日 Fajr。
 - **Roboto 字体。** 英文和数字使用原生像素字号的常规体与粗体，时间明确标注 AM/PM，阿拉伯语采用连写字形。
+- **横竖屏拱形布局。** 竖屏使用单拱形，横屏使用左右双拱形，分别承载当前礼拜和当天时刻表。
 - **礼拜设置全部在设备上完成。** 手机热点页面只负责 Wi-Fi，不混入宗教参数。
 - **横竖屏独立设计。** 设备转动并稳定后，IMU 会切换到对应布局。
 - **为墨水屏设计。** 设置操作使用快刷，页面长期保持可读，三分钟无操作后进入深度睡眠。
@@ -125,7 +126,9 @@ pio device monitor --port /dev/cu.usbmodemXXXX --baud 115200
 | 转动设备 | 姿态稳定后切换横屏或竖屏 |
 | 三分钟没有操作 | 进入深度睡眠，并保留定时器、顶部按键和姿态唤醒 |
 
-**Prayer Reminder** 控制礼拜边界提示音。**Minute Adjustments → Show Qiyam** 控制 Qiyam 是否出现在时刻表和夜间状态中；关闭后 Isha 仍持续到次日 Fajr。设置首页包含 Location、Calculation Method、Minute Adjustments、Prayer Reminder 和 Wi-Fi Setup 五个入口。
+**Prayer Reminder** 控制礼拜边界提示音。**Minute Adjustments → Show Qiyam** 控制 Qiyam 是否出现在时刻表中；关闭后 Isha 仍持续到次日 Fajr。设置首页包含 Location、Calculation Method、Minute Adjustments、Prayer Reminder 和 Wi-Fi Setup 五个入口。
+
+礼拜页顶部左侧显示电量，中间显示位置，右侧显示计算方法及齿轮设置入口。进入深度睡眠后，电量旁出现小月牙。较长的计算方法优先显示机构名，超出空间的名称以省略号收尾，完整设置值仍保留。
 
 礼拜页面使用明确标注 **AM/PM** 的 12 小时制。首次设置显示 **Save & Start**，日常设置显示 **Save & Exit** 和 **Discard & Exit**。Wi-Fi 配网页的 **Back** 按钮使用已保存网络返回设备设置。
 
@@ -185,7 +188,7 @@ bash tools/run_host_tests.sh
 成功标志：
 
 ```text
-[host-test] PASS 26/26
+[host-test] PASS 27/27
 ```
 
 提交改动前构建两套固件：

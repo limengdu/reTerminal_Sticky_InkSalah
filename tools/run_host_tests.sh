@@ -141,6 +141,12 @@ compile_and_run sleep_indicator_test \
     test/sleep_indicator_test.cpp \
     src/ui/canvas.cpp src/ui/font.cpp src/ui/sleep_indicator.cpp
 
+compile_and_run battery_status_render_test \
+    -Isrc/ui \
+    test/battery_status_render_test.cpp \
+    src/ui/battery_status_render.cpp src/ui/battery_status_overlay_theme.cpp \
+    src/ui/canvas.cpp src/ui/font.cpp src/ui/sleep_indicator.cpp
+
 compile_and_run display_orientation_test \
     -Isrc/app -Isrc/sensors -Isrc/ui \
     test/display_orientation_test.cpp \
@@ -180,4 +186,4 @@ compile_and_run location_catalog_test \
     test/location_catalog_test.cpp \
     src/location/location_catalog.cpp
 
-echo "[host-test] PASS ${passed_count}/26"
+echo "[host-test] PASS ${passed_count}/27"

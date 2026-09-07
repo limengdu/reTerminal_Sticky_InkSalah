@@ -24,3 +24,6 @@ IslamicBackgroundAsset islamic_landscape_background_asset();
 IslamicBackgroundAsset inksalah_lantern_asset();
 IslamicBackgroundAsset inksalah_book_asset();
 IslamicBackgroundAsset inksalah_gear_asset();
+IslamicBackgroundAsset inksalah_status_gear_asset();
+IslamicBackgroundAsset inksalah_location_asset();
+IslamicBackgroundAsset inksalah_clock_asset();

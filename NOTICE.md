@@ -26,6 +26,8 @@ Their source, license text, and exact repository commits are downloaded into `ma
 
 The original project artwork and the PDF-derived artwork are stored in `assets/ui/`. `prayer-original.png`, `setup-original.png`, `lanterns-source.png`, `arch-source.png`, `book-source.png`, `book-mask.png`, and `gear-mask.png` are extracted from the supplied INKSALAH design. Firmware-ready one-bit derivatives are stored in `src/ui/`. PDF-derived artwork retains its original ownership and licensing; redistribution of these assets is governed by the original artwork licenses.
 
+The location and alarm-clock icon sources are cropped from the supplied portrait/landscape UI references. Their original ownership and licensing remain with the source artwork. Normalized reference images and rendering comparisons are stored in `docs/images/ui-review/`.
+
 ## Roboto
 
 Roboto is supplied by the Roboto Project Authors under the SIL Open Font License 1.1. The font and license are vendored in `assets/fonts/`. Native-size raster derivatives are generated into `src/ui/roboto_font_data.inc`.

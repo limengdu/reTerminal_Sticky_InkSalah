@@ -33,6 +33,7 @@ uint16_t Canvas::height() const
 
 void Canvas::clear(GrayLevel color)
 {
+    prayer_header_ = false;
     // Repeat one 2-bit value four times so memset can clear four pixels at once.
     // 将同一个2位灰度值复制四次，让memset一次写入四个像素。
     const uint8_t value = static_cast<uint8_t>(color) & 0x03U;

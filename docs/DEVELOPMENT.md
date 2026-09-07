@@ -38,7 +38,7 @@ bash tools/run_host_tests.sh
 Expected result:
 
 ```text
-[host-test] PASS 26/26
+[host-test] PASS 27/27
 ```
 
 Coverage includes solar calculations, Hanafi Asr, Qiyam, cross-midnight windows, settings storage policies, touch gestures, Wi-Fi parsing and scan models, captive portal behavior, location policies, screen orientation, deep-sleep indicators, and UI layout safeguards.
@@ -61,6 +61,8 @@ g++ -std=c++17 \
   src/ui/prayer_pages.cpp \
   src/ui/prayer_settings_pages.cpp \
   src/ui/sleep_indicator.cpp \
+  src/ui/battery_status_render.cpp \
+  src/ui/battery_status_overlay_theme.cpp \
   -o /tmp/inksalah-ui-preview
 ```
 
@@ -70,6 +72,11 @@ Render representative screens:
 /tmp/inksalah-ui-preview portrait schedule /tmp/inksalah-portrait.pgm
 /tmp/inksalah-ui-preview landscape schedule /tmp/inksalah-landscape.pgm
 /tmp/inksalah-ui-preview portrait schedule-no-qiyam /tmp/inksalah-no-qiyam.pgm
+/tmp/inksalah-ui-preview landscape schedule-no-qiyam-sleep /tmp/inksalah-sleep.pgm
+/tmp/inksalah-ui-preview portrait schedule-long-header /tmp/inksalah-long-header.pgm
+/tmp/inksalah-ui-preview portrait schedule-between /tmp/inksalah-between.pgm
+/tmp/inksalah-ui-preview landscape schedule-night /tmp/inksalah-night.pgm
+/tmp/inksalah-ui-preview portrait schedule-maghrib /tmp/inksalah-maghrib.pgm
 /tmp/inksalah-ui-preview portrait setup /tmp/inksalah-setup.pgm
 /tmp/inksalah-ui-preview portrait setup-return /tmp/inksalah-setup-return.pgm
 /tmp/inksalah-ui-preview portrait settings-main /tmp/inksalah-settings.pgm
@@ -80,7 +87,7 @@ Render representative screens:
 /tmp/inksalah-ui-preview portrait settings-editor /tmp/inksalah-editor.pgm
 ```
 
-The renderer calls the production canvas and page functions. A preview therefore catches layout regressions in the actual firmware UI path.
+The renderer calls the production canvas, page functions, and battery painter with a sample battery reading of 100% and external power present. A preview therefore catches layout regressions in the actual firmware UI path.
 
 ## Typography and artwork
 
@@ -100,14 +107,19 @@ To extract artwork from the original design again, run `tools/extract_inksalah_p
 
 The UI flow starts with `prayer_page_render_schedule`, which draws the background, date header, current window, and six or seven time rows. `prayer_settings_render` draws the selected settings page; `prayer_settings_action_at` maps a tap to an action for `device_settings.cpp` to apply. The gear shortcut and bottom-edge swipe both enter this existing native settings flow.
 
+The prayer renderer selects its status-bar layout on the canvas. `battery_status_render` receives the measured charge and external-power state, then paints the matching battery area; `sleep_indicator_render` uses the neighboring crescent area. Clearing the canvas restores the regular status layout for setup and settings pages. The status painters share their geometry through `status_bar_layout.h`.
+
+The landscape background places two uniformly scaled copies of the source arch. `date_header` centers the calendar above the two content columns, `hero` composes the current prayer and countdown, and `times` right-aligns each English/Arabic label group beside its time badge. Seven-row schedules use a tighter row rhythm while keeping Latin text at least 20 pixels. Arabic row labels use 20-pixel type; hero labels use native 28-pixel portrait and 40-pixel landscape bold type.
+
 ### UI verification
 
-1. Run the host suite and build both profiles; expect `PASS 26/26` and `SUCCESS`.
+1. Run the host suite and build both profiles; expect `PASS 27/27` and `SUCCESS`.
 2. Render the prayer page in both orientations, with Qiyam on and off. Every time has an AM/PM label; the seventh row remains inside the screen.
 3. Render `settings-main-first-time`: the bottom row contains one Save & Start action. Render `settings-main`: Save & Exit and Discard & Exit are separate actions.
 4. On the device, tap the gear, open each settings category, and test the new button positions. In Minute Adjustments, toggle Show Qiyam and save; confirm the row count changes.
 5. Open Wi-Fi Setup and tap Back. Expect a return to native settings with the saved network available.
-6. Test midnight, noon, long city names, and an Isha window ending the following day. Rotate the device, then leave it idle for three minutes; the small sleep crescent should remain visible against the black header.
+6. Test midnight, noon, long city and method names, and an Isha window ending the following day. Rotate the device, then leave it idle for three minutes; the small sleep crescent should appear beside the battery against the black header.
+7. Check battery values 0 and 100, charging and unplugged states, and unavailable readings. The battery and crescent occupy separate areas, and the city and method remain readable after a battery update.
 
 Host previews verify rendering and hit regions. Touch responsiveness, contrast, waveform behavior, and ghosting are verified on the physical display.
 
