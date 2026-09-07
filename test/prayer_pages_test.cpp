@@ -80,6 +80,10 @@ int main()
         }
     }
     canvas.set_rotation(CanvasRotation::Deg90Clockwise);
+    for (const char *text : {"01 Connect Your Phone to", "02 Enter The Passwords",
+                             "03 Open The Setup Page", "(Just in case it doesn't opt in)"}) {
+        assert(Canvas::text_width(text, 20) <= 328);
+    }
     prayer_page_render_setup(canvas, "Sticky-Salah-A1B2", "sticky-salah", false);
     const std::vector<uint8_t> first_setup = storage;
     assert(!prayer_page_setup_back_action_at(240, 690, false));

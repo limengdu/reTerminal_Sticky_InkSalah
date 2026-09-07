@@ -239,14 +239,14 @@ void prayer_page_render_setup(Canvas &canvas, const char *ap_ssid,
     ui::centered(canvas, center, brand_y + 48, "Powered by reTerminal Sticky", 20);
     ui::pill(canvas, center - 174, portrait ? 222 : 145, 348, 50,
               can_return ? "Wi-Fi Setup" : "First-Time Wi-Fi Setup", true, 24);
-    const char *steps[] = {"01 Connect your phone to", "02 Enter the password", "03 Open the setup page"};
+    const char *steps[] = {"01 Connect Your Phone to", "02 Enter The Passwords", "03 Open The Setup Page"};
     const char *values[] = {ap_ssid, ap_password, "192.168.4.1"};
     for (int index = 0; index < 3; ++index) {
         const int left = portrait ? 84 : 80 + index * 225;
         const int y = portrait ? 316 + index * 110 : 223;
         canvas.draw_text_sized(left, y, steps[index], 20, GrayLevel::DarkGray);
         if (portrait && index == 2) {
-            canvas.draw_text_sized(left, y + 30, "If it does not open automatically", 20);
+            canvas.draw_text_sized(left, y + 30, "(Just in case it doesn't opt in)", 20);
         }
         char fitted[80] = {};
         ui::fit(values[index], fitted, sizeof(fitted), portrait ? 330 : 208,
