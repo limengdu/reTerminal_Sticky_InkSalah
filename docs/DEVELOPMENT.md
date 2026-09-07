@@ -77,9 +77,39 @@ Render representative screens:
 /tmp/inksalah-ui-preview portrait settings-calculation /tmp/inksalah-calculation.pgm
 /tmp/inksalah-ui-preview portrait settings-methods /tmp/inksalah-methods.pgm
 /tmp/inksalah-ui-preview portrait settings-adjustments /tmp/inksalah-adjustments.pgm
+/tmp/inksalah-ui-preview portrait settings-editor /tmp/inksalah-editor.pgm
 ```
 
 The renderer calls the production canvas and page functions. A preview therefore catches layout regressions in the actual firmware UI path.
+
+## Typography and artwork
+
+The main UI uses native-size Roboto glyphs in regular and bold weights. The minimum Latin text size is 20 pixels. `Canvas::draw_text_sized` draws a requested size, while `Canvas::text_width` measures the same proportional glyph advances. Settings buttons share their geometry with the touch action mapper. Static Arabic labels are shaped into connected word bitmaps before compilation.
+
+The build consumes the committed font and artwork arrays directly. Asset regeneration uses Python with Pillow and, for PDF extraction, pypdf plus the Poppler `pdftoppm` command. Arabic-label regeneration uses Swift and the macOS Geeza Pro font.
+
+```bash
+python3 -m venv /tmp/inksalah-assets-venv
+/tmp/inksalah-assets-venv/bin/python -m pip install Pillow==12.3.0 pypdf==6.10.0
+/tmp/inksalah-assets-venv/bin/python tools/generate_roboto_font.py
+/tmp/inksalah-assets-venv/bin/python tools/generate_inksalah_assets.py
+swift tools/generate_arabic_prayer_assets.swift src/ui/arabic_prayer_assets.cpp
+```
+
+To extract artwork from the original design again, run `tools/extract_inksalah_pdf_assets.py` with the path to `INKSALAH.pdf` as its argument, then regenerate the artwork arrays. The source fingerprint and asset provenance are recorded in `assets/ui/PDF_SOURCE.md` and `assets/fonts/README.md`.
+
+The UI flow starts with `prayer_page_render_schedule`, which draws the background, date header, current window, and six or seven time rows. `prayer_settings_render` draws the selected settings page; `prayer_settings_action_at` maps a tap to an action for `device_settings.cpp` to apply. The gear shortcut and bottom-edge swipe both enter this existing native settings flow.
+
+### UI verification
+
+1. Run the host suite and build both profiles; expect `PASS 26/26` and `SUCCESS`.
+2. Render the prayer page in both orientations, with Qiyam on and off. Every time has an AM/PM label; the seventh row remains inside the screen.
+3. Render `settings-main-first-time`: the bottom row contains one Save & Start action. Render `settings-main`: Save & Exit and Discard & Exit are separate actions.
+4. On the device, tap the gear, open each settings category, and test the new button positions. In Minute Adjustments, toggle Show Qiyam and save; confirm the row count changes.
+5. Open Wi-Fi Setup and tap Back. Expect a return to native settings with the saved network available.
+6. Test midnight, noon, long city names, and an Isha window ending the following day. Rotate the device, then leave it idle for three minutes; the small sleep crescent should remain visible against the black header.
+
+Host previews verify rendering and hit regions. Touch responsiveness, contrast, waveform behavior, and ghosting are verified on the physical display.
 
 ## Captive portal preview
 

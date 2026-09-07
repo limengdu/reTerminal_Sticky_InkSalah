@@ -160,8 +160,7 @@ void battery_status_overlay_draw(Canvas &canvas, bool sleep_layout)
     constexpr int kLabelScale = 2;
     constexpr int kLabelAreaX = 43;
     constexpr int kLabelAreaWidth = kAreaWidth - kLabelAreaX;
-    const int label_width = static_cast<int>(std::strlen(label)) *
-                            6 * kLabelScale;
+    const int label_width = Canvas::text_width(label, Canvas::text_size(kLabelScale));
     canvas.draw_text(area_x + kLabelAreaX +
                          (kLabelAreaWidth - label_width) / 2,
                      kAreaTop + 7,

@@ -41,7 +41,7 @@ The short names used on the device match widely recognized names from the [AlAdh
 | `QATAR` | Qatar | 18° | — | Isha 90 min after Maghrib |
 | `MUIS` | Majlis Ugama Islam Singapura | 20° | 18° | — |
 | `UOIF` | Union des Organisations Islamiques de France | 12° | 12° | — |
-| `DIYANET` | Diyanet İşleri Başkanlığı, Turkey | 18° | 17° | — |
+| `DİB` | Diyanet İşleri Başkanlığı, Turkey | 18° | 17° | — |
 | `RUSSIA` | Spiritual Administration of Muslims of Russia | 16° | 15° | — |
 | `MOONSIGHTING` | Moonsighting Committee Worldwide | seasonal | seasonal | Season- and latitude-aware safe twilight |
 | `DUBAI` | Dubai | 18.2° | 18.2° | — |

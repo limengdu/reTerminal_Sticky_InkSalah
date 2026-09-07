@@ -22,13 +22,13 @@ size_t black_pixels(const Canvas &canvas)
 
 int main()
 {
-    assert(prayer_settings_action_at(DeviceSettingsPage::Main, 240, 150).type == DeviceSettingsActionType::OpenLocation);
-    assert(prayer_settings_action_at(DeviceSettingsPage::Main, 240, 490).type == DeviceSettingsActionType::OpenWifi);
-    assert(prayer_settings_action_at(DeviceSettingsPage::Main, 240, 410).type == DeviceSettingsActionType::ToggleQiyamDisplay);
-    assert(prayer_settings_action_at(DeviceSettingsPage::Location, 240, 260).type == DeviceSettingsActionType::EditLatitude);
-    assert(prayer_settings_action_at(DeviceSettingsPage::LatitudeEditor, 90, 620).type == DeviceSettingsActionType::EditorClear);
-    assert(prayer_settings_action_at(DeviceSettingsPage::LatitudeEditor, 220, 620).type == DeviceSettingsActionType::EditorBackspace);
-    assert(prayer_settings_action_at(DeviceSettingsPage::LatitudeEditor, 370, 620).type == DeviceSettingsActionType::EditorConfirm);
+    assert(prayer_settings_action_at(DeviceSettingsPage::Main, 240, 260).type == DeviceSettingsActionType::OpenLocation);
+    assert(prayer_settings_action_at(DeviceSettingsPage::Main, 240, 630).type == DeviceSettingsActionType::OpenWifi);
+    assert(prayer_settings_action_at(DeviceSettingsPage::Adjustments, 240, 654).type == DeviceSettingsActionType::ToggleQiyamDisplay);
+    assert(prayer_settings_action_at(DeviceSettingsPage::Location, 240, 350).type == DeviceSettingsActionType::EditLatitude);
+    assert(prayer_settings_action_at(DeviceSettingsPage::LatitudeEditor, 90, 674).type == DeviceSettingsActionType::EditorClear);
+    assert(prayer_settings_action_at(DeviceSettingsPage::LatitudeEditor, 220, 674).type == DeviceSettingsActionType::EditorBackspace);
+    assert(prayer_settings_action_at(DeviceSettingsPage::LatitudeEditor, 370, 674).type == DeviceSettingsActionType::EditorConfirm);
     assert(prayer_settings_parent_page(DeviceSettingsPage::Main) == DeviceSettingsPage::Main);
     assert(prayer_settings_parent_page(DeviceSettingsPage::Location) == DeviceSettingsPage::Main);
     assert(prayer_settings_parent_page(DeviceSettingsPage::Calculation) == DeviceSettingsPage::Main);
@@ -38,22 +38,32 @@ int main()
     assert(prayer_settings_parent_page(DeviceSettingsPage::LatitudeEditor) == DeviceSettingsPage::Location);
     assert(prayer_settings_parent_page(DeviceSettingsPage::LongitudeEditor) == DeviceSettingsPage::Location);
     assert(prayer_settings_parent_page(DeviceSettingsPage::CustomFajrEditor) == DeviceSettingsPage::CustomMethod);
-    assert(prayer_settings_action_at(DeviceSettingsPage::Calculation, 100, 360).type == DeviceSettingsActionType::SelectStandard);
+    assert(prayer_settings_action_at(DeviceSettingsPage::Calculation, 100, 480).type == DeviceSettingsActionType::SelectStandard);
     const DeviceSettingsAction method = prayer_settings_action_at(
-        DeviceSettingsPage::MethodList, 240, 420, 0U);
+        DeviceSettingsPage::MethodList, 240, 485, 0U);
     assert(method.type == DeviceSettingsActionType::SelectMethod && method.value == 3);
     const DeviceSettingsAction custom_interval = prayer_settings_action_at(
-        DeviceSettingsPage::MethodList, 240, 510, 4U);
+        DeviceSettingsPage::MethodList, 240, 580, 4U);
     assert(custom_interval.type == DeviceSettingsActionType::SelectMethod &&
            custom_interval.value == kCalculationMethodCustomInterval);
     assert(prayer_settings_action_at(
-               DeviceSettingsPage::MethodList, 100, 600, 1U).type ==
+               DeviceSettingsPage::MethodList, 100, 660, 1U).type ==
            DeviceSettingsActionType::PreviousMethodPage);
-    const DeviceSettingsAction adjustment = prayer_settings_action_at(DeviceSettingsPage::Adjustments, 420, 350);
+    const DeviceSettingsAction adjustment = prayer_settings_action_at(DeviceSettingsPage::Adjustments, 420, 415);
     assert(adjustment.type == DeviceSettingsActionType::AdjustmentPlus && adjustment.value == 3);
-    const DeviceSettingsAction digit = prayer_settings_action_at(DeviceSettingsPage::LatitudeEditor, 100, 250);
+    const DeviceSettingsAction digit = prayer_settings_action_at(DeviceSettingsPage::LatitudeEditor, 100, 340);
     assert(digit.type == DeviceSettingsActionType::EditorDigit && digit.value == 1);
     assert(prayer_settings_action_at(DeviceSettingsPage::Main, -1, 100).type == DeviceSettingsActionType::None);
+
+    assert(prayer_settings_action_at(DeviceSettingsPage::Main, 340, 730, 0, true).type == DeviceSettingsActionType::Save);
+    assert(prayer_settings_action_at(DeviceSettingsPage::Main, 340, 730, 0, false).type == DeviceSettingsActionType::Cancel);
+    assert(prayer_settings_action_at(DeviceSettingsPage::Main, 240, 305).type == DeviceSettingsActionType::None);
+    assert(prayer_settings_action_at(DeviceSettingsPage::Main, 480, 220).type == DeviceSettingsActionType::None);
+    assert(prayer_settings_action_at(DeviceSettingsPage::Calculation, 240, 480).type == DeviceSettingsActionType::None);
+    for (int index = 0; index < 7; ++index) {
+        auto minus = prayer_settings_action_at(DeviceSettingsPage::Adjustments, 60, 240 + index * 58);
+        assert(minus.type == DeviceSettingsActionType::AdjustmentMinus && minus.value == index);
+    }
 
     std::vector<uint8_t> framebuffer(480U * 800U / 4U, 0xFFU);
     Canvas canvas(480U, 800U, framebuffer.data(), framebuffer.size());

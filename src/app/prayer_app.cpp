@@ -352,6 +352,18 @@ PrayerInputResult wait_for_prayer_input(Canvas &canvas,
                         static_cast<unsigned>(canvas.rotation()));
         }
 
+        StickyTouchPress press = {};
+        if (sticky_touch_take_press(press)) {
+            int x = 0;
+            int y = 0;
+            canvas.physical_to_logical(press.x, press.y, x, y);
+            if (prayer_page_settings_action_at(x, y, canvas.width(), canvas.height())) {
+                last_user_activity_ms = monotonic_ms();
+                if (imu_started) sticky_imu_stop_monitoring();
+                return PrayerInputResult::SettingsRequested;
+            }
+        }
+
         if (imu_started) {
             StickyImuState imu_state = {};
             if (sticky_imu_get_state(imu_state) == ESP_OK &&

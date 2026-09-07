@@ -15,11 +15,13 @@ struct PackedBitmap {
 }
 
 let labels = [
-    PrayerLabel(enumName: "Fajr", symbolName: "Fajr", text: "الفجر"),
-    PrayerLabel(enumName: "Dhuhr", symbolName: "Dhuhr", text: "الظهر"),
-    PrayerLabel(enumName: "Asr", symbolName: "Asr", text: "العصر"),
-    PrayerLabel(enumName: "Maghrib", symbolName: "Maghrib", text: "المغرب"),
-    PrayerLabel(enumName: "Isha", symbolName: "Isha", text: "العشاء"),
+    PrayerLabel(enumName: "Fajr", symbolName: "Fajr", text: "\u{0641}\u{062C}\u{0631}"),
+    PrayerLabel(enumName: "Sunrise", symbolName: "Sunrise", text: "\u{0634}\u{0631}\u{0648}\u{0642}"),
+    PrayerLabel(enumName: "Dhuhr", symbolName: "Dhuhr", text: "\u{0638}\u{0647}\u{0631}"),
+    PrayerLabel(enumName: "Asr", symbolName: "Asr", text: "\u{0639}\u{0635}\u{0631}"),
+    PrayerLabel(enumName: "Maghrib", symbolName: "Maghrib", text: "\u{0645}\u{063A}\u{0631}\u{0628}"),
+    PrayerLabel(enumName: "Isha", symbolName: "Isha", text: "\u{0639}\u{0634}\u{0627}\u{0621}"),
+    PrayerLabel(enumName: "Qiyam", symbolName: "Qiyam", text: "\u{0642}\u{064A}\u{0627}\u{0645}"),
 ]
 
 func render(_ text: String) -> PackedBitmap {
@@ -48,8 +50,9 @@ func render(_ text: String) -> PackedBitmap {
     let paragraph = NSMutableParagraphStyle()
     paragraph.alignment = .center
     paragraph.baseWritingDirection = .rightToLeft
-    let font = NSFont(name: "Arial Unicode MS", size: 30)
-        ?? NSFont.systemFont(ofSize: 30)
+    guard let font = NSFont(name: "GeezaPro", size: 24) else {
+        fatalError("Geeza Pro is required for shaped Arabic labels")
+    }
     let attributes: [NSAttributedString.Key: Any] = [
         .font: font,
         .foregroundColor: NSColor.black,
@@ -136,18 +139,29 @@ for (label, bitmap) in rendered {
 output += """
 }  // namespace
 
-ArabicPrayerAsset arabic_prayer_asset(PrayerId prayer)
+ArabicPrayerAsset arabic_time_asset(PrayerTimeSlot prayer)
 {
     switch (prayer) {
 """
 for (label, bitmap) in rendered {
-    output += "    case PrayerId::\(label.enumName):\n"
+    output += "    case PrayerTimeSlot::\(label.enumName):\n"
     output += "        return {\(bitmap.width)U, \(bitmap.height)U, \(bitmap.stride)U, k\(label.symbolName)};\n"
 }
 output += """
-    case PrayerId::None:
     default:
         return {};
+    }
+}
+
+ArabicPrayerAsset arabic_prayer_asset(PrayerId prayer)
+{
+    switch (prayer) {
+    case PrayerId::Fajr: return arabic_time_asset(PrayerTimeSlot::Fajr);
+    case PrayerId::Dhuhr: return arabic_time_asset(PrayerTimeSlot::Dhuhr);
+    case PrayerId::Asr: return arabic_time_asset(PrayerTimeSlot::Asr);
+    case PrayerId::Maghrib: return arabic_time_asset(PrayerTimeSlot::Maghrib);
+    case PrayerId::Isha: return arabic_time_asset(PrayerTimeSlot::Isha);
+    default: return {};
     }
 }
 """

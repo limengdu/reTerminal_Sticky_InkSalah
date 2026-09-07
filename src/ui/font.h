@@ -1,15 +1,27 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 
 struct FontGlyph {
-    uint8_t columns[5];
+    uint32_t codepoint;
+    uint32_t offset;
+    uint8_t width;
+    uint8_t height;
+    int8_t left;
+    int8_t top;
+    uint8_t advance;
 };
 
-constexpr uint8_t kFontWidth = 5;
-constexpr uint8_t kFontHeight = 7;
-constexpr uint8_t kFontSpacing = 1;
+struct FontFace {
+    uint8_t size;
+    bool bold;
+    const FontGlyph *glyphs;
+    size_t count;
+};
 
-// Returns a compact 5x7 glyph. Unsupported characters use the '?' glyph.
-// 返回一个5x7点阵字符；当前字体不支持的字符统一显示为问号。
-const FontGlyph &font_get_glyph(char character);
+const FontFace &font_face(uint8_t size, bool bold);
+const FontGlyph &font_glyph(const FontFace &face, uint32_t codepoint);
+const uint8_t *font_pixels(const FontGlyph &glyph);
+uint32_t font_next_codepoint(const char *&text);
+int font_text_width(const char *text, uint8_t size, bool bold = false);

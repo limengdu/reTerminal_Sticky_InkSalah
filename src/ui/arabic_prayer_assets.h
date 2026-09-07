@@ -14,3 +14,4 @@ struct ArabicPrayerAsset {
 // Returns a pre-shaped monochrome Arabic label for one prayer.
 // 返回一次礼拜对应的预排版黑白阿拉伯语标签。
 ArabicPrayerAsset arabic_prayer_asset(PrayerId prayer);
+ArabicPrayerAsset arabic_time_asset(PrayerTimeSlot slot);

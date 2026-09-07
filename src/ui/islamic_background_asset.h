@@ -20,3 +20,7 @@ IslamicBackgroundAsset islamic_setup_background_asset();
 // Returns the generated 1-bit landscape prayer-page ornament.
 // 返回由横屏设计稿生成的横屏礼拜页面装饰背景。
 IslamicBackgroundAsset islamic_landscape_background_asset();
+
+IslamicBackgroundAsset inksalah_lantern_asset();
+IslamicBackgroundAsset inksalah_book_asset();
+IslamicBackgroundAsset inksalah_gear_asset();

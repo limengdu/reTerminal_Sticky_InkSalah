@@ -1,8 +1,13 @@
 #pragma once
 
+#include <cstddef>
+
 #include <cstdint>
 
 #include "canvas.h"
+
+void prayer_page_format_time(uint16_t minutes, char *output, size_t capacity);
+bool prayer_page_settings_action_at(int x, int y, int width, int height);
 #include "prayer_time.h"
 #include "settings_model.h"
 

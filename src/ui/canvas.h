@@ -61,6 +61,19 @@ public:
                    GrayLevel color = GrayLevel::Black,
                    TextWeight weight = TextWeight::Regular);
 
+    // Draws a proportional Roboto face at its native pixel size.
+    // 使用原生像素字号绘制比例间距 Roboto 字体。
+    void draw_text_sized(int x, int y, const char *text, uint8_t size,
+                         GrayLevel color = GrayLevel::Black,
+                         TextWeight weight = TextWeight::Regular);
+    static int text_width(const char *text, uint8_t size,
+                          TextWeight weight = TextWeight::Regular);
+    static uint8_t text_size(uint8_t scale);
+    void fill_round_rect(int x, int y, int width, int height, int radius,
+                         GrayLevel color);
+    void draw_round_rect(int x, int y, int width, int height, int radius,
+                         GrayLevel color = GrayLevel::Black);
+
     // Converts a physical touch coordinate into the current logical page axes.
     // 将物理触摸坐标转换为当前旋转页面使用的逻辑坐标。
     void physical_to_logical(int physical_x,

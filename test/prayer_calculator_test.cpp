@@ -75,7 +75,7 @@ int main()
     assert(std::strcmp(settings_method_short_name(2U), "ISNA") == 0);
     assert(std::strcmp(settings_method_short_name(11U), "MUIS") == 0);
     assert(std::strcmp(settings_method_short_name(12U), "UOIF") == 0);
-    assert(std::strcmp(settings_method_short_name(13U), "DIYANET") == 0);
+    assert(std::strcmp(settings_method_short_name(13U), "D\u0130B") == 0);
     assert(std::strcmp(settings_method_short_name(20U), "KEMENAG") == 0);
 
     SalahSettings isna = settings;

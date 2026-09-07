@@ -13,18 +13,18 @@ namespace {
 PrayerDay sample_day()
 {
     PrayerDay day = {};
-    day.date = {2026U, 8U, 28U};
-    day.minutes[0] = 283U;
-    day.minutes[1] = 364U;
-    day.minutes[2] = 719U;
-    day.minutes[3] = 921U;
-    day.minutes[4] = 1075U;
-    day.minutes[5] = 1147U;
-    day.minutes[6] = 1574U;
+    day.date = {2026U, 9U, 4U};
+    day.minutes[0] = 299U;
+    day.minutes[1] = 393U;
+    day.minutes[2] = 784U;
+    day.minutes[3] = 1002U;
+    day.minutes[4] = 1173U;
+    day.minutes[5] = 1263U;
+    day.minutes[6] = 1554U;
     day.hijri_year = 1448U;
-    day.hijri_month = 2U;
-    day.hijri_day = 15U;
-    std::strcpy(day.hijri_month_name, "Safar");
+    day.hijri_month = 3U;
+    day.hijri_day = 22U;
+    std::strcpy(day.hijri_month_name, "Rabi al-Awwal");
     std::strcpy(day.weekday, "Friday");
     return day;
 }
@@ -70,6 +70,13 @@ int main(int argc, char **argv)
         }
         SalahSettings settings = {};
         settings_store_defaults(settings);
+        std::strcpy(settings.city, "Istanbul");
+        std::strcpy(settings.country, "Turkey");
+        settings.latitude = 41.0082;
+        settings.longitude = 28.9784;
+        settings.utc_offset_minutes = 180;
+        settings.calculation_method = 13U;
+        settings.qiyam_visible = false;
         std::strcpy(settings.wifi_ssid, "Home Wi-Fi");
         settings.configured = true;
         settings.location_confirmed = true;
@@ -81,6 +88,7 @@ int main(int argc, char **argv)
             state.page = DeviceSettingsPage::Location;
         } else if (std::strcmp(argv[2], "settings-calculation") == 0) {
             state.page = DeviceSettingsPage::Calculation;
+            settings.calculation_method = 3U;
         } else if (std::strcmp(argv[2], "settings-methods") == 0) {
             state.page = DeviceSettingsPage::MethodList;
             state.method_page = 2U;
@@ -91,6 +99,9 @@ int main(int argc, char **argv)
             state.page = DeviceSettingsPage::Adjustments;
             settings.prayer_adjustments[0] = 2;
             settings.prayer_adjustments[3] = -3;
+        } else if (std::strcmp(argv[2], "settings-editor") == 0) {
+            state.page = DeviceSettingsPage::LatitudeEditor;
+            std::strcpy(state.editor_value, "-90.0000");
         } else if (std::strcmp(argv[2], "settings-main") != 0) {
             std::fprintf(stderr, "Unknown settings page: %s\n", argv[2]);
             return 2;
@@ -114,8 +125,8 @@ int main(int argc, char **argv)
         settings.configured = true;
         settings.location_confirmed = true;
         std::strcpy(settings.wifi_ssid, "Home");
-        std::strcpy(settings.city, "Shenzhen");
-        settings.calculation_method = 3U;
+        std::strcpy(settings.city, "Istanbul");
+        settings.calculation_method = 13U;
         settings.asr_school = 1U;
         settings.qiyam_visible =
             std::strcmp(argv[2], "schedule-no-qiyam") != 0;
@@ -123,9 +134,9 @@ int main(int argc, char **argv)
         PrayerPageModel model = {};
         model.settings = &settings;
         model.today = &today;
-        model.next = {PrayerId::Maghrib, 1075U, 154U, false};
-        model.window = {PrayerId::Asr, 921U, 1075U, 154U};
-        model.current_minutes = 921U;
+        model.next = {PrayerId::Asr, 1002U, 154U, false};
+        model.window = {PrayerId::Dhuhr, 784U, 1002U, 154U};
+        model.current_minutes = 848U;
         model.online = false;
         prayer_page_render_schedule(canvas, model);
         if (std::strcmp(argv[2], "schedule-sleep") == 0) {

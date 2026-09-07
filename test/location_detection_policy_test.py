@@ -26,7 +26,7 @@ def main() -> None:
         "Network location must reuse an active saved Wi-Fi connection.",
     )
     require(
-        '"AUTO-DETECT FROM WI-FI"' in settings_pages,
+        '"Detect from connected Wi-Fi"' in settings_pages,
         "The Location page must identify its automatic network action.",
     )
 

@@ -37,6 +37,13 @@ void verify_indicator(Canvas &canvas)
     assert(canvas.pixel_at(12, 21) == GrayLevel::Black);
     assert(canvas.pixel_at(21, 21) == GrayLevel::White);
     assert(canvas.pixel_at(21, 30) == GrayLevel::Black);
+
+    canvas.clear(GrayLevel::Black);
+    sleep_indicator_render(canvas);
+    assert(canvas.pixel_at(12, 21) == GrayLevel::White);
+    assert(canvas.pixel_at(21, 21) == GrayLevel::Black);
+    assert(canvas.pixel_at(21, 30) == GrayLevel::White);
+    assert(canvas.pixel_at(40, 40) == GrayLevel::Black);
 }
 
 }  // namespace

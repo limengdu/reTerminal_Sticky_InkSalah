@@ -236,37 +236,82 @@ void Canvas::fill_circle(int center_x,
     }
 }
 
-void Canvas::draw_text(int x,
-                       int y,
-                       const char *text,
-                       uint8_t scale,
-                       GrayLevel color,
-                       TextWeight weight)
+uint8_t Canvas::text_size(uint8_t scale)
 {
-    if (text == nullptr) {
-        return;
-    }
     scale = std::max<uint8_t>(scale, kMinimumTextScale);
+    return scale == 2U ? 20U : scale == 3U ? 28U : scale == 4U ? 36U
+           : scale == 5U ? 40U : 48U;
+}
 
-    // A bold glyph widens each active dot by one physical pixel.
-    // 粗体字形将每个有效点横向增加一个物理像素。
-    const int stroke_width = scale +
-                             (weight == TextWeight::Bold ? 1 : 0);
-    int cursor_x = x;
-    for (const char *character = text; *character != '\0'; ++character) {
-        const FontGlyph &glyph = font_get_glyph(*character);
-        for (uint8_t column = 0; column < kFontWidth; ++column) {
-            for (uint8_t row = 0; row < kFontHeight; ++row) {
-                if ((glyph.columns[column] & (1U << row)) != 0U) {
-                    fill_rect(cursor_x + column * scale,
-                              y + row * scale,
-                              stroke_width,
-                              scale,
-                              color);
+int Canvas::text_width(const char *text, uint8_t size, TextWeight weight)
+{
+    return font_text_width(text, size, weight == TextWeight::Bold);
+}
+
+void Canvas::draw_text(int x, int y, const char *text, uint8_t scale,
+                       GrayLevel color, TextWeight weight)
+{
+    draw_text_sized(x, y, text, text_size(scale), color, weight);
+}
+
+void Canvas::draw_text_sized(int x, int y, const char *text, uint8_t size,
+                             GrayLevel color, TextWeight weight)
+{
+    if (text == nullptr) return;
+    const FontFace &face = font_face(size, weight == TextWeight::Bold);
+    while (*text != '\0') {
+        const FontGlyph &glyph = font_glyph(face, font_next_codepoint(text));
+        const uint8_t *pixels = font_pixels(glyph);
+        const int stride = (glyph.width + 7) / 8;
+        for (int row = 0; row < glyph.height; ++row) {
+            for (int column = 0; column < glyph.width; ++column) {
+                if ((pixels[row * stride + column / 8] &
+                     (1U << (7 - column % 8))) != 0U) {
+                    draw_pixel(x + glyph.left + column, y + glyph.top + row, color);
                 }
             }
         }
-        cursor_x += (kFontWidth + kFontSpacing) * scale;
+        x += glyph.advance;
+    }
+}
+
+void Canvas::fill_round_rect(int x, int y, int width, int height, int radius,
+                             GrayLevel color)
+{
+    radius = std::max(0, std::min(radius, std::min(width, height) / 2));
+    fill_rect(x + radius, y, width - radius * 2, height, color);
+    fill_rect(x, y + radius, width, height - radius * 2, color);
+    fill_circle(x + radius, y + radius, radius, color);
+    fill_circle(x + width - radius - 1, y + radius, radius, color);
+    fill_circle(x + radius, y + height - radius - 1, radius, color);
+    fill_circle(x + width - radius - 1, y + height - radius - 1, radius, color);
+}
+
+void Canvas::draw_round_rect(int x, int y, int width, int height, int radius,
+                             GrayLevel color)
+{
+    radius = std::max(0, std::min(radius, std::min(width, height) / 2));
+    draw_line(x + radius, y, x + width - radius - 1, y, color);
+    draw_line(x + radius, y + height - 1, x + width - radius - 1, y + height - 1, color);
+    draw_line(x, y + radius, x, y + height - radius - 1, color);
+    draw_line(x + width - 1, y + radius, x + width - 1, y + height - radius - 1, color);
+    int cx = radius;
+    int cy = 0;
+    int error = 1 - radius;
+    while (cx >= cy) {
+        const int left = x + radius, right = x + width - radius - 1;
+        const int top = y + radius, bottom = y + height - radius - 1;
+        draw_pixel(left - cx, top - cy, color);
+        draw_pixel(left - cy, top - cx, color);
+        draw_pixel(right + cx, top - cy, color);
+        draw_pixel(right + cy, top - cx, color);
+        draw_pixel(left - cx, bottom + cy, color);
+        draw_pixel(left - cy, bottom + cx, color);
+        draw_pixel(right + cx, bottom + cy, color);
+        draw_pixel(right + cy, bottom + cx, color);
+        ++cy;
+        if (error < 0) error += 2 * cy + 1;
+        else { --cx; error += 2 * (cy - cx + 1); }
     }
 }
 

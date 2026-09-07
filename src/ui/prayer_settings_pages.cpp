@@ -5,493 +5,324 @@
 #include <cstdlib>
 #include <cstring>
 
-#include "islamic_background_asset.h"
+#include "ui_style.h"
 
 namespace {
 
 constexpr size_t kMethodsPerPage = 5U;
+constexpr const char *kAdjustmentNames[] = {"Fajr", "Sunrise", "Dhuhr", "Asr", "Maghrib", "Isha", "Qiyam"};
 
-constexpr const char *kAdjustmentNames[kPrayerAdjustmentCount] = {
-    "FAJR", "SUNRISE", "DHUHR", "ASR", "MAGHRIB", "ISHA", "QIYAM",
+struct Box {
+    int x, y, width, height;
+    bool contains(int px, int py) const
+    {
+        return px >= x && px < x + width && py >= y && py < y + height;
+    }
 };
 
-int text_width(const char *text,
-               uint8_t scale,
-               TextWeight weight = TextWeight::Regular)
+// These bounds drive both rendering and touch actions.
+// 这些区域同时用于绘制和触摸操作映射。
+constexpr Box kMainRows[] = {
+    {46, 220, 399, 77}, {46, 314, 399, 77}, {46, 408, 399, 77},
+    {46, 502, 399, 77}, {46, 596, 399, 77},
+};
+constexpr Box kSave{46, 698, 195, 66};
+constexpr Box kDiscard{250, 698, 195, 66};
+constexpr Box kMethod{41, 268, 399, 77};
+constexpr Box kStandard{41, 446, 187, 78};
+constexpr Box kHanafi{260, 446, 187, 78};
+constexpr Box kCalculationBack{143, 686, 194, 64};
+constexpr Box kBack{143, 704, 194, 56};
+constexpr Box kLocationDetect{41, 220, 399, 72};
+constexpr Box kQiyam{41, 636, 399, 46};
+
+Box method_box(size_t slot) { return {41, 220 + static_cast<int>(slot) * 81, 399, 66}; }
+Box coordinate_box(int row, int column)
 {
-    if (text == nullptr) {
-        return 0;
-    }
-    const int width = static_cast<int>(std::strlen(text)) * 6 * scale;
-    return width + (weight == TextWeight::Bold ? 1 : 0);
+    return {column == 0 ? 41 : column == 1 ? 113 : 374,
+            318 + row * 110, column == 1 ? 248 : 66, 72};
+}
+Box adjustment_box(int index, bool plus)
+{
+    return {plus ? 392 : 41, 220 + index * 58, 48, 48};
+}
+Box key_box(int index)
+{
+    return {41 + index % 3 * 137, 306 + index / 3 * 79, 125, 66};
 }
 
-void centered(Canvas &canvas,
-              int center_x,
-              int y,
-              const char *text,
-              uint8_t scale,
-              GrayLevel color = GrayLevel::Black,
-              TextWeight weight = TextWeight::Regular)
+void button(Canvas &canvas, Box box, const char *text, bool selected = false,
+             uint8_t size = 24U, bool round = true)
 {
-    canvas.draw_text(center_x - text_width(text, scale, weight) / 2,
-                     y, text, scale, color, weight);
-}
-
-void ellipsize(const char *text,
-               size_t maximum_characters,
-               char *output,
-               size_t capacity)
-{
-    if (output == nullptr || capacity == 0U) {
-        return;
-    }
-    output[0] = '\0';
-    if (text == nullptr) {
-        return;
-    }
-    const size_t length = std::strlen(text);
-    if (length <= maximum_characters) {
-        std::snprintf(output, capacity, "%s", text);
-        return;
-    }
-    const size_t kept = maximum_characters > 3U
-                            ? maximum_characters - 3U
-                            : 0U;
-    std::snprintf(output,
-                  capacity,
-                  "%.*s...",
-                  static_cast<int>(kept),
-                  text);
-}
-
-void draw_asset(Canvas &canvas, const IslamicBackgroundAsset &asset)
-{
-    if (asset.data == nullptr || asset.width != canvas.width() ||
-        asset.height != canvas.height()) {
-        return;
-    }
-    for (uint16_t y = 0U; y < asset.height; ++y) {
-        for (uint16_t x = 0U; x < asset.width; ++x) {
-            const uint8_t value = asset.data[
-                static_cast<size_t>(y) * asset.stride + x / 8U];
-            if ((value & static_cast<uint8_t>(1U << (7U - x % 8U))) != 0U) {
-                canvas.draw_pixel(x, y, GrayLevel::Black);
-            }
-        }
+    if (round) {
+        ui::pill(canvas, box.x, box.y, box.width, box.height, text, selected, size);
+    } else {
+        canvas.fill_round_rect(box.x, box.y, box.width, box.height, 12,
+                               selected ? GrayLevel::Black : GrayLevel::White);
+        canvas.draw_round_rect(box.x, box.y, box.width, box.height, 12);
+        ui::fitted_centered(canvas, box.x + box.width / 2,
+                             box.y + (box.height - size) / 2,
+                             text, box.width - 20, size, TextWeight::Bold,
+                             selected ? GrayLevel::White : GrayLevel::Black);
     }
 }
 
 void page_base(Canvas &canvas, const char *title, const char *subtitle)
 {
-    canvas.clear(GrayLevel::White);
-    draw_asset(canvas, islamic_setup_background_asset());
-    canvas.fill_rect(22, 42, 436, 730, GrayLevel::White);
-    centered(canvas, 240, 58, title, 3,
-             GrayLevel::Black, TextWeight::Bold);
-    centered(canvas, 240, 88, subtitle, 2);
-}
-
-void button(Canvas &canvas,
-            int x,
-            int y,
-            int width,
-            int height,
-            const char *label,
-            bool selected = false,
-            uint8_t scale = 2U,
-            TextWeight weight = TextWeight::Regular)
-{
-    canvas.fill_rect(x, y, width, height,
-                     selected ? GrayLevel::Black : GrayLevel::White);
-    canvas.draw_rect(x, y, width, height, GrayLevel::Black);
-    centered(canvas, x + width / 2, y + (height - 7 * scale) / 2,
-             label, scale,
-             selected ? GrayLevel::White : GrayLevel::Black,
-             weight);
-}
-
-void row(Canvas &canvas,
-         int y,
-         const char *title,
-         const char *value,
-         bool selected = false)
-{
-    canvas.fill_rect(34, y, 412, 76,
-                     selected ? GrayLevel::Black : GrayLevel::White);
-    canvas.draw_rect(34, y, 412, 76, GrayLevel::Black);
-    canvas.draw_text(50, y + 14, title, 2,
-                     selected ? GrayLevel::White : GrayLevel::Black,
-                     TextWeight::Bold);
-    if (value != nullptr && value[0] != '\0') {
-        char fitted[32] = {};
-        ellipsize(value, 27U, fitted, sizeof(fitted));
-        canvas.draw_text(50, y + 43, fitted, 2,
-                         selected ? GrayLevel::White : GrayLevel::Black);
+    canvas.clear();
+    ui::bitmap(canvas, 0, 0, inksalah_lantern_asset());
+    const bool main = std::strcmp(title, "INKSALAH Settings") == 0;
+    const int width = main ? 340 : 368;
+    canvas.fill_round_rect(240 - width / 2, 136, width, 67, 33, GrayLevel::Black);
+    if (main) {
+        ui::bitmap(canvas, 89, 151, inksalah_book_asset(), GrayLevel::White);
     }
-    canvas.draw_text(420, y + 28, ">", 2,
-                     selected ? GrayLevel::White : GrayLevel::Black);
+    ui::fitted_centered(canvas, main ? 267 : 240, 157, title,
+                         main ? 270 : 330, 24, TextWeight::Bold, GrayLevel::White);
+    if (subtitle != nullptr && subtitle[0] != '\0')
+        ui::fitted_centered(canvas, 240, 775, subtitle, 430, 20,
+                             TextWeight::Regular, GrayLevel::DarkGray);
 }
 
-void main_row(Canvas &canvas,
-              int y,
-              const char *title,
-              const char *value)
+void card(Canvas &canvas, Box box, const char *title, const char *value)
 {
-    constexpr int kHeight = 64;
-    canvas.fill_rect(34, y, 412, kHeight, GrayLevel::White);
-    canvas.draw_rect(34, y, 412, kHeight, GrayLevel::Black);
-    canvas.draw_text(50, y + 9, title, 2,
-                     GrayLevel::Black, TextWeight::Bold);
-    if (value != nullptr && value[0] != '\0') {
-        char fitted[32] = {};
-        ellipsize(value, 27U, fitted, sizeof(fitted));
-        canvas.draw_text(50, y + 36, fitted, 2, GrayLevel::Black);
-    }
-    canvas.draw_text(420, y + 21, ">", 2, GrayLevel::Black);
+    canvas.draw_round_rect(box.x, box.y, box.width, box.height, 12);
+    canvas.draw_text_sized(box.x + 17, box.y + 10, title, 20, GrayLevel::DarkGray);
+    char fitted[128] = {};
+    ui::fit(value, fitted, sizeof(fitted), box.width - 68, 24, TextWeight::Bold);
+    canvas.draw_text_sized(box.x + 17, box.y + 41, fitted, 24,
+                           GrayLevel::Black, TextWeight::Bold);
+    canvas.draw_text_sized(box.x + box.width - 34, box.y + 28, ">", 28, GrayLevel::DarkGray);
 }
 
 void footer_status(Canvas &canvas, const DeviceSettingsUiState &state)
 {
-    if (state.status[0] == '\0') {
-        return;
-    }
-    char fitted[36] = {};
-    ellipsize(state.status, 33U, fitted, sizeof(fitted));
-    canvas.fill_rect(35, 738, 410, 30, GrayLevel::White);
-    centered(canvas, 240, 746, fitted, 2);
+    if (state.status[0] == '\0') return;
+    canvas.fill_rect(0, 771, 480, 29, GrayLevel::White);
+    ui::fitted_centered(canvas, 240, 775, state.status, 436, 20);
 }
 
-void render_main(Canvas &canvas,
-                 const SalahSettings &settings,
-                 const DeviceSettingsUiState &state)
+void render_main(Canvas &canvas, const SalahSettings &settings, const DeviceSettingsUiState &state)
 {
-    page_base(canvas, "SALAH SETTINGS", "TAP A SECTION TO CHANGE");
-    char location[64] = {};
-    std::snprintf(location, sizeof(location), "%.28s, %.28s",
-                  settings.city, settings.country);
-    main_row(canvas, 110, "LOCATION", location);
-
-    char calculation[64] = {};
-    std::snprintf(calculation, sizeof(calculation), "%s / %s",
-                  settings_method_short_name(settings.calculation_method),
-                  settings_asr_school_name(settings.asr_school));
-    main_row(canvas, 178, "CALCULATION", calculation);
-    main_row(canvas, 246, "MINUTE ADJUSTMENTS", "SEVEN TIME OFFSETS");
-    main_row(canvas, 314, "PRAYER REMINDER",
-             settings.sound_enabled ? "ON" : "OFF");
-    main_row(canvas, 382, "QIYAM DISPLAY",
-             settings.qiyam_visible ? "ON" : "OFF");
-    main_row(canvas, 450, "WI-FI SETUP", settings.wifi_ssid);
-    button(canvas, 34, 540, 412, 72,
-           state.first_time ? "SAVE & START" : "SAVE & EXIT",
-           true, 2, TextWeight::Bold);
-    if (!state.first_time) {
-        button(canvas, 34, 625, 412, 60, "DISCARD & EXIT", false, 2);
+    page_base(canvas, "INKSALAH Settings", "");
+    char location[128] = {};
+    std::snprintf(location, sizeof(location), "%.56s, %.56s", settings.city, settings.country);
+    card(canvas, kMainRows[0], "Location", location);
+    card(canvas, kMainRows[1], "Calculation Method",
+          settings.calculation_method == 13U ? "D\u0130B, Turkey" :
+          settings_method_short_name(settings.calculation_method));
+    card(canvas, kMainRows[2], "Minute Adjustments",
+          settings.qiyam_visible ? "Seven Displayed Times" : "Six Displayed Times");
+    card(canvas, kMainRows[3], "Prayer Reminder", settings.sound_enabled ? "ON" : "OFF");
+    card(canvas, kMainRows[4], "Wi-Fi Setup",
+          settings.wifi_ssid[0] == '\0' ? "Not connected" : settings.wifi_ssid);
+    if (state.first_time) {
+        button(canvas, {46, 698, 399, 66}, "Save & Start", true);
     } else {
-        centered(canvas, 240, 648, "REQUIRED TO CONTINUE", 2);
+        button(canvas, kSave, "Save & Exit", true);
+        button(canvas, kDiscard, "Discard & Exit");
     }
     footer_status(canvas, state);
 }
 
-void coordinate_row(Canvas &canvas,
-                    int y,
-                    const char *name,
-                    const char *value)
+void render_location(Canvas &canvas, const SalahSettings &settings, const DeviceSettingsUiState &state)
 {
-    button(canvas, 34, y, 66, 88, "-", false, 3);
-    button(canvas, 108, y, 264, 88, value, false, 2);
-    button(canvas, 380, y, 66, 88, "+", false, 3);
-    canvas.fill_rect(105, y - 10, 270, 22, GrayLevel::White);
-    centered(canvas, 240, y - 6, name, 2,
-             GrayLevel::Black, TextWeight::Bold);
-}
-
-void render_location(Canvas &canvas,
-                     const SalahSettings &settings,
-                     const DeviceSettingsUiState &state)
-{
-    page_base(canvas, "LOCATION", "NETWORK LOCATION OR COORDINATES");
-    char location[64] = {};
-    std::snprintf(location, sizeof(location), "%.28s, %.28s",
-                  settings.city, settings.country);
-    row(canvas, 115, "AUTO-DETECT FROM WI-FI", location);
-    char value[24] = {};
-    std::snprintf(value, sizeof(value), "%.4f", settings.latitude);
-    coordinate_row(canvas, 225, "LATITUDE", value);
-    std::snprintf(value, sizeof(value), "%.4f", settings.longitude);
-    coordinate_row(canvas, 350, "LONGITUDE", value);
-
-    char offset[24] = {};
-    const int total = settings.utc_offset_minutes;
-    std::snprintf(offset, sizeof(offset), "UTC%c%02d:%02d",
-                  total < 0 ? '-' : '+', std::abs(total) / 60,
-                  std::abs(total) % 60);
-    coordinate_row(canvas, 475, "TIME ZONE / 15 MIN", offset);
-    button(canvas, 34, 580, 198, 56, "- 1 HOUR", false, 2);
-    button(canvas, 248, 580, 198, 56, "+ 1 HOUR", false, 2);
-    button(canvas, 34, 670, 412, 58, "BACK", false, 2);
-    footer_status(canvas, state);
-}
-
-void render_calculation(Canvas &canvas,
-                        const SalahSettings &settings,
-                        const DeviceSettingsUiState &state)
-{
-    page_base(canvas, "CALCULATION", "CHOOSE THE STANDARD YOU FOLLOW");
-    row(canvas, 150, "CALCULATION METHOD",
-        settings_method_short_name(settings.calculation_method));
-    const CalculationMethodDefinition *definition =
-        settings_calculation_method_by_id(settings.calculation_method);
-    char rule[40] = {};
-    if (settings.calculation_method == kCalculationMethodCustomAngles) {
-        std::snprintf(rule, sizeof(rule), "FAJR %.1f / ISHA %.1f DEG",
-                      settings.custom_fajr_angle_tenths / 10.0,
-                      settings.custom_isha_angle_tenths / 10.0);
-    } else if (settings.calculation_method ==
-               kCalculationMethodCustomInterval) {
-        std::snprintf(rule, sizeof(rule), "FAJR %.1f / ISHA +%u MIN",
-                      settings.custom_fajr_angle_tenths / 10.0,
-                      static_cast<unsigned>(
-                          settings.custom_isha_interval_minutes));
-    } else if (definition != nullptr &&
-               definition->isha_interval_minutes > 0U) {
-        std::snprintf(rule, sizeof(rule), "FAJR %.1f / ISHA +%u MIN",
-                      definition->fajr_angle_tenths / 10.0,
-                      static_cast<unsigned>(
-                          definition->isha_interval_minutes));
-    } else if (definition != nullptr) {
-        std::snprintf(rule, sizeof(rule), "FAJR %.1f / ISHA %.1f DEG",
-                      definition->fajr_angle_tenths / 10.0,
-                      definition->isha_angle_tenths / 10.0);
-    }
-    centered(canvas, 240, 244, rule, 2);
-    centered(canvas, 240, 296, "ASR JURISTIC METHOD", 2,
-             GrayLevel::Black, TextWeight::Bold);
-    button(canvas, 34, 338, 198, 100, "STANDARD",
-           settings.asr_school == 0U, 2);
-    button(canvas, 248, 338, 198, 100, "HANAFI",
-           settings.asr_school == 1U, 2);
-    centered(canvas, 240, 466, "ASR ONLY; OTHER TIMES STAY THE SAME", 2);
-    button(canvas, 34, 670, 412, 58, "BACK", false, 2);
-    footer_status(canvas, state);
-}
-
-void render_method_list(Canvas &canvas,
-                        const SalahSettings &settings,
-                        const DeviceSettingsUiState &state)
-{
-    const size_t method_count = settings_calculation_method_count();
-    const size_t page_count =
-        (method_count + kMethodsPerPage - 1U) / kMethodsPerPage;
-    const size_t page = std::min<size_t>(state.method_page,
-                                        page_count - 1U);
-    char subtitle[48] = {};
-    std::snprintf(subtitle, sizeof(subtitle),
-                  "PAGE %u OF %u / SELECT A STANDARD",
-                  static_cast<unsigned>(page + 1U),
-                  static_cast<unsigned>(page_count));
-    page_base(canvas, "METHOD", subtitle);
-    const size_t first = page * kMethodsPerPage;
-    for (size_t slot = 0U; slot < kMethodsPerPage; ++slot) {
-        const CalculationMethodDefinition *definition =
-            settings_calculation_method_at(first + slot);
-        if (definition == nullptr) {
-            break;
+    page_base(canvas, "Location", "");
+    char value[128] = {};
+    std::snprintf(value, sizeof(value), "%.56s, %.56s", settings.city, settings.country);
+    card(canvas, kLocationDetect, "Detect from connected Wi-Fi", value);
+    for (int row = 0; row < 3; ++row) {
+        if (row == 0) std::snprintf(value, sizeof(value), "%.4f", settings.latitude);
+        else if (row == 1) std::snprintf(value, sizeof(value), "%.4f", settings.longitude);
+        else {
+            const int offset = settings.utc_offset_minutes;
+            std::snprintf(value, sizeof(value), "UTC%c%02d:%02d", offset < 0 ? '-' : '+',
+                          std::abs(offset) / 60, std::abs(offset) % 60);
         }
-        const int y = 118 + static_cast<int>(slot) * 88;
-        button(canvas, 34, y, 412, 72, definition->short_name,
-               settings.calculation_method == definition->id, 2,
-               TextWeight::Bold);
+        button(canvas, coordinate_box(row, 0), "-", false, 28, false);
+        button(canvas, coordinate_box(row, 1), value, false, 24, false);
+        button(canvas, coordinate_box(row, 2), "+", false, 28, false);
+        canvas.fill_rect(117, 303 + row * 110, 238, 25, GrayLevel::White);
+        ui::centered(canvas, 237, 303 + row * 110,
+                      row == 0 ? "Latitude" : row == 1 ? "Longitude" : "Time zone / 15 min", 20);
     }
-    button(canvas, 34, 580, 198, 58, "PREVIOUS",
-           false, 2);
-    button(canvas, 248, 580, 198, 58, "NEXT", false, 2);
-    button(canvas, 34, 670, 412, 58, "BACK", false, 2);
+    button(canvas, {41, 628, 190, 48}, "- 1 hour", false, 22);
+    button(canvas, {250, 628, 190, 48}, "+ 1 hour", false, 22);
+    button(canvas, kBack, "Back");
     footer_status(canvas, state);
 }
 
-void render_custom_method(Canvas &canvas,
-                          const SalahSettings &settings,
-                          const DeviceSettingsUiState &state)
+void render_calculation(Canvas &canvas, const SalahSettings &settings, const DeviceSettingsUiState &state)
 {
-    const bool interval = settings.calculation_method ==
-                          kCalculationMethodCustomInterval;
-    page_base(canvas, interval ? "CUSTOM INTERVAL" : "CUSTOM ANGLES",
-              "TAP A VALUE TO ENTER IT");
-    char value[24] = {};
-    std::snprintf(value, sizeof(value), "%.1f DEG",
-                  settings.custom_fajr_angle_tenths / 10.0);
-    row(canvas, 150, "FAJR ANGLE", value);
-    if (interval) {
-        std::snprintf(value, sizeof(value), "%u MIN",
-                      static_cast<unsigned>(
-                          settings.custom_isha_interval_minutes));
-        row(canvas, 260, "ISHA AFTER MAGHRIB", value);
-    } else {
-        std::snprintf(value, sizeof(value), "%.1f DEG",
-                      settings.custom_isha_angle_tenths / 10.0);
-        row(canvas, 260, "ISHA ANGLE", value);
+    page_base(canvas, "Calculation Method", "");
+    canvas.draw_text_sized(53, 238, "Calculation Method", 22, GrayLevel::Black, TextWeight::Bold);
+    canvas.draw_round_rect(kMethod.x, kMethod.y, kMethod.width, kMethod.height, 12);
+    canvas.draw_text_sized(60, 293, settings_method_short_name(settings.calculation_method),
+                           24, GrayLevel::Black, TextWeight::Bold);
+    canvas.draw_text_sized(407, 293, ">", 28, GrayLevel::DarkGray);
+    const CalculationMethodDefinition *definition = settings_calculation_method_by_id(settings.calculation_method);
+    int fajr = settings.custom_fajr_angle_tenths;
+    int isha = settings.custom_isha_angle_tenths;
+    int interval = settings.calculation_method == kCalculationMethodCustomInterval
+                       ? settings.custom_isha_interval_minutes : 0;
+    if (definition != nullptr && settings.calculation_method != kCalculationMethodCustomAngles &&
+        settings.calculation_method != kCalculationMethodCustomInterval) {
+        fajr = definition->fajr_angle_tenths;
+        isha = definition->isha_angle_tenths;
+        interval = definition->isha_interval_minutes;
     }
-    centered(canvas, 240, 382,
-             interval ? "ISHA USES MINUTES AFTER MAGHRIB"
-                      : "ANGLES DESCRIBE TWILIGHT",
-             2);
-    button(canvas, 34, 560, 412, 76, "USE THIS METHOD",
-           true, 2, TextWeight::Bold);
-    button(canvas, 34, 670, 412, 58, "BACK", false, 2);
+    char rule[80] = {};
+    if (interval > 0) std::snprintf(rule, sizeof(rule), "* Fajr %.1f / Isha +%d min", fajr / 10.0, interval);
+    else std::snprintf(rule, sizeof(rule), "* Fajr %.1f / Isha %.1f deg", fajr / 10.0, isha / 10.0);
+    ui::centered(canvas, 240, 362, rule, 20, TextWeight::Regular, GrayLevel::DarkGray);
+    canvas.draw_text_sized(47, 415, "Asr Juristic Method", 22, GrayLevel::Black, TextWeight::Bold);
+    button(canvas, kStandard, "Standard", settings.asr_school == 0U, 24, false);
+    button(canvas, kHanafi, "Hanafi", settings.asr_school == 1U, 24, false);
+    ui::centered(canvas, 240, 543, "* Asr only; other times stay the same.", 20,
+                  TextWeight::Regular, GrayLevel::DarkGray);
+    button(canvas, kCalculationBack, "Back");
     footer_status(canvas, state);
 }
 
-void render_adjustments(Canvas &canvas,
-                        const SalahSettings &settings,
-                        const DeviceSettingsUiState &state)
+void render_method_list(Canvas &canvas, const SalahSettings &settings, const DeviceSettingsUiState &state)
 {
-    page_base(canvas, "MINUTE ADJUSTMENTS", "MATCH YOUR LOCAL MOSQUE SCHEDULE");
-    for (size_t index = 0U; index < kPrayerAdjustmentCount; ++index) {
-        const int y = 112 + static_cast<int>(index) * 73;
-        char value[16] = {};
-        std::snprintf(value, sizeof(value), "%+d MIN",
-                      static_cast<int>(settings.prayer_adjustments[index]));
-        button(canvas, 34, y, 62, 58, "-", false, 3);
-        canvas.draw_text(113, y + 10, kAdjustmentNames[index], 2,
-                         GrayLevel::Black, TextWeight::Bold);
-        canvas.draw_text(270, y + 14, value, 2);
-        button(canvas, 384, y, 62, 58, "+", false, 3);
+    const size_t pages = (settings_calculation_method_count() + kMethodsPerPage - 1U) / kMethodsPerPage;
+    const size_t page = std::min<size_t>(state.method_page, pages - 1U);
+    char subtitle[36] = {};
+    std::snprintf(subtitle, sizeof(subtitle), "Page %u of %u",
+                  static_cast<unsigned>(page + 1U), static_cast<unsigned>(pages));
+    page_base(canvas, "Calculation Method", subtitle);
+    for (size_t slot = 0; slot < kMethodsPerPage; ++slot) {
+        const auto *method = settings_calculation_method_at(page * kMethodsPerPage + slot);
+        if (method == nullptr) break;
+        button(canvas, method_box(slot), method->short_name,
+                settings.calculation_method == method->id, 24, false);
     }
-    button(canvas, 34, 670, 412, 58, "BACK", false, 2);
+    button(canvas, {41, 640, 190, 48}, "Previous", false, 22);
+    button(canvas, {250, 640, 190, 48}, "Next", false, 22);
+    button(canvas, kBack, "Back");
     footer_status(canvas, state);
 }
 
-void render_editor(Canvas &canvas,
-                   const DeviceSettingsUiState &state)
+void render_custom_method(Canvas &canvas, const SalahSettings &settings, const DeviceSettingsUiState &state)
+{
+    const bool interval = settings.calculation_method == kCalculationMethodCustomInterval;
+    page_base(canvas, interval ? "Custom Interval" : "Custom Angles", "");
+    char value[36] = {};
+    std::snprintf(value, sizeof(value), "%.1f degrees", settings.custom_fajr_angle_tenths / 10.0);
+    card(canvas, {41, 240, 399, 77}, "Fajr Angle", value);
+    if (interval) std::snprintf(value, sizeof(value), "%u minutes", settings.custom_isha_interval_minutes);
+    else std::snprintf(value, sizeof(value), "%.1f degrees", settings.custom_isha_angle_tenths / 10.0);
+    card(canvas, {41, 352, 399, 77}, interval ? "Isha after Maghrib" : "Isha Angle", value);
+    ui::centered(canvas, 240, 468, interval ? "Isha: minutes after Maghrib" : "Angles define twilight", 20);
+    button(canvas, {41, 574, 399, 64}, "Use This Method", true);
+    button(canvas, kBack, "Back");
+    footer_status(canvas, state);
+}
+
+void render_adjustments(Canvas &canvas, const SalahSettings &settings, const DeviceSettingsUiState &state)
+{
+    page_base(canvas, "Minute Adjustments", "");
+    for (int index = 0; index < static_cast<int>(kPrayerAdjustmentCount); ++index) {
+        const Box box = adjustment_box(index, false);
+        char value[24] = {};
+        std::snprintf(value, sizeof(value), "%+d min", settings.prayer_adjustments[index]);
+        button(canvas, box, "-", false, 28, false);
+        button(canvas, adjustment_box(index, true), "+", false, 28, false);
+        canvas.draw_text_sized(106, box.y + 13, kAdjustmentNames[index], 22, GrayLevel::Black, TextWeight::Bold);
+        ui::centered(canvas, 310, box.y + 14, value, 22);
+    }
+    button(canvas, kQiyam, settings.qiyam_visible ? "Show Qiyam: ON" : "Show Qiyam: OFF",
+            settings.qiyam_visible, 22);
+    button(canvas, kBack, "Back");
+    footer_status(canvas, state);
+}
+
+void render_editor(Canvas &canvas, const DeviceSettingsUiState &state)
 {
     const bool latitude = state.page == DeviceSettingsPage::LatitudeEditor;
     const bool longitude = state.page == DeviceSettingsPage::LongitudeEditor;
     const bool fajr = state.page == DeviceSettingsPage::CustomFajrEditor;
-    const bool custom_isha = state.page == DeviceSettingsPage::CustomIshaEditor;
-    const char *title = latitude ? "EDIT LATITUDE"
-                        : longitude ? "EDIT LONGITUDE"
-                        : fajr ? "EDIT FAJR ANGLE"
-                               : "EDIT ISHA VALUE";
-    const char *subtitle = latitude ? "VALID RANGE -90 TO 90"
-                           : longitude ? "VALID RANGE -180 TO 180"
-                           : custom_isha ? "ANGLE 1-30 / INTERVAL 1-240"
-                                         : "VALID ANGLE 1.0 TO 30.0";
-    page_base(canvas, title, subtitle);
-    button(canvas, 34, 120, 412, 72,
-           state.editor_value[0] == '\0' ? "0" : state.editor_value,
-           false, 3);
-    const bool coordinate_editor = latitude || longitude;
-    const char *keys[] = {
-        "1", "2", "3", "4", "5", "6", "7", "8", "9",
-        coordinate_editor ? "+/-" : "00", "0", ".",
-    };
-    for (size_t index = 0U; index < 12U; ++index) {
-        const int column = static_cast<int>(index % 3U);
-        const int row_index = static_cast<int>(index / 3U);
-        button(canvas, 34 + column * 138, 220 + row_index * 88,
-               124, 72, keys[index], false, 2);
-    }
-    button(canvas, 34, 590, 124, 72, "DELETE", false, 2);
-    button(canvas, 172, 590, 124, 72, "BACK", false, 2);
-    button(canvas, 310, 590, 136, 72, "OK", true, 2,
-           TextWeight::Bold);
+    page_base(canvas, latitude ? "Latitude" : longitude ? "Longitude" : fajr ? "Fajr Angle" : "Isha Value",
+               latitude ? "Range: -90 to 90" : longitude ? "Range: -180 to 180"
+               : fajr ? "Range: 1.0 to 30.0 degrees" : "Angle: 1-30 / interval: 1-240");
+    button(canvas, {41, 224, 399, 62}, state.editor_value[0] == '\0' ? "0" : state.editor_value, false, 28, false);
+    const char *keys[] = {"1", "2", "3", "4", "5", "6", "7", "8", "9",
+                          latitude || longitude ? "+/-" : "00", "0", "."};
+    for (int index = 0; index < 12; ++index) button(canvas, key_box(index), keys[index], false, 28, false);
+    button(canvas, {41, 644, 125, 62}, "Delete", false, 22, false);
+    button(canvas, {178, 644, 125, 62}, "Back", false, 22, false);
+    button(canvas, {315, 644, 125, 62}, "OK", true, 22, false);
     footer_status(canvas, state);
-}
-
-bool inside(int x, int y, int left, int top, int right, int bottom)
-{
-    return x >= left && x <= right && y >= top && y <= bottom;
 }
 
 }  // namespace
 
-DeviceSettingsAction prayer_settings_action_at(DeviceSettingsPage page,
-                                                int x,
-                                                int y,
-                                                uint8_t method_page)
+DeviceSettingsAction prayer_settings_action_at(DeviceSettingsPage page, int x, int y,
+                                                uint8_t method_page, bool first_time)
 {
-    if (x < 0 || x >= 480 || y < 0 || y >= 800) {
-        return {};
-    }
+    if (x < 0 || x >= 480 || y < 0 || y >= 800) return {};
+    using Action = DeviceSettingsActionType;
     if (page == DeviceSettingsPage::Main) {
-        if (inside(x, y, 34, 110, 446, 174)) return {DeviceSettingsActionType::OpenLocation};
-        if (inside(x, y, 34, 178, 446, 242)) return {DeviceSettingsActionType::OpenCalculation};
-        if (inside(x, y, 34, 246, 446, 310)) return {DeviceSettingsActionType::OpenAdjustments};
-        if (inside(x, y, 34, 314, 446, 378)) return {DeviceSettingsActionType::ToggleReminder};
-        if (inside(x, y, 34, 382, 446, 446)) return {DeviceSettingsActionType::ToggleQiyamDisplay};
-        if (inside(x, y, 34, 450, 446, 514)) return {DeviceSettingsActionType::OpenWifi};
-        if (inside(x, y, 34, 540, 446, 612)) return {DeviceSettingsActionType::Save};
-        if (inside(x, y, 34, 625, 446, 685)) return {DeviceSettingsActionType::Cancel};
+        constexpr Action actions[] = {Action::OpenLocation, Action::OpenCalculation,
+            Action::OpenAdjustments, Action::ToggleReminder, Action::OpenWifi};
+        for (size_t i = 0; i < 5U; ++i)
+            if (kMainRows[i].contains(x, y)) return {actions[i]};
+        if (first_time && Box{46, 698, 399, 66}.contains(x, y)) return {Action::Save};
+        if (kSave.contains(x, y)) return {Action::Save};
+        if (!first_time && kDiscard.contains(x, y)) return {Action::Cancel};
     } else if (page == DeviceSettingsPage::Location) {
-        if (inside(x, y, 34, 115, 446, 187)) return {DeviceSettingsActionType::DetectLocation};
-        if (inside(x, y, 34, 225, 100, 313)) return {DeviceSettingsActionType::LatitudeMinus};
-        if (inside(x, y, 108, 225, 372, 313)) return {DeviceSettingsActionType::EditLatitude};
-        if (inside(x, y, 380, 225, 446, 313)) return {DeviceSettingsActionType::LatitudePlus};
-        if (inside(x, y, 34, 350, 100, 438)) return {DeviceSettingsActionType::LongitudeMinus};
-        if (inside(x, y, 108, 350, 372, 438)) return {DeviceSettingsActionType::EditLongitude};
-        if (inside(x, y, 380, 350, 446, 438)) return {DeviceSettingsActionType::LongitudePlus};
-        if (inside(x, y, 34, 475, 100, 563)) return {DeviceSettingsActionType::OffsetMinus15};
-        if (inside(x, y, 380, 475, 446, 563)) return {DeviceSettingsActionType::OffsetPlus15};
-        if (inside(x, y, 34, 580, 232, 636)) return {DeviceSettingsActionType::OffsetMinusHour};
-        if (inside(x, y, 248, 580, 446, 636)) return {DeviceSettingsActionType::OffsetPlusHour};
-        if (inside(x, y, 34, 670, 446, 728)) return {DeviceSettingsActionType::Back};
+        if (kLocationDetect.contains(x, y)) return {Action::DetectLocation};
+        constexpr Action actions[3][3] = {
+            {Action::LatitudeMinus, Action::EditLatitude, Action::LatitudePlus},
+            {Action::LongitudeMinus, Action::EditLongitude, Action::LongitudePlus},
+            {Action::OffsetMinus15, Action::None, Action::OffsetPlus15},
+        };
+        for (int row = 0; row < 3; ++row)
+            for (int col = 0; col < 3; ++col)
+                if (coordinate_box(row, col).contains(x, y)) return {actions[row][col]};
+        if (Box{41, 628, 190, 48}.contains(x, y)) return {Action::OffsetMinusHour};
+        if (Box{250, 628, 190, 48}.contains(x, y)) return {Action::OffsetPlusHour};
+        if (kBack.contains(x, y)) return {Action::Back};
     } else if (page == DeviceSettingsPage::Calculation) {
-        if (inside(x, y, 34, 150, 446, 226)) return {DeviceSettingsActionType::SelectMethod, -1};
-        if (inside(x, y, 34, 338, 232, 438)) return {DeviceSettingsActionType::SelectStandard};
-        if (inside(x, y, 248, 338, 446, 438)) return {DeviceSettingsActionType::SelectHanafi};
-        if (inside(x, y, 34, 670, 446, 728)) return {DeviceSettingsActionType::Back};
+        if (kMethod.contains(x, y)) return {Action::SelectMethod, -1};
+        if (kStandard.contains(x, y)) return {Action::SelectStandard};
+        if (kHanafi.contains(x, y)) return {Action::SelectHanafi};
+        if (kCalculationBack.contains(x, y)) return {Action::Back};
     } else if (page == DeviceSettingsPage::MethodList) {
-        const size_t first = static_cast<size_t>(method_page) *
-                             kMethodsPerPage;
-        for (size_t slot = 0U; slot < kMethodsPerPage; ++slot) {
-            const CalculationMethodDefinition *definition =
-                settings_calculation_method_at(first + slot);
-            const int top = 118 + static_cast<int>(slot) * 88;
-            if (definition != nullptr &&
-                inside(x, y, 34, top, 446, top + 72)) {
-                return {DeviceSettingsActionType::SelectMethod,
-                        definition->id};
-            }
+        const size_t pages = (settings_calculation_method_count() + kMethodsPerPage - 1U) / kMethodsPerPage;
+        const size_t first = std::min<size_t>(method_page, pages - 1U) * kMethodsPerPage;
+        for (size_t slot = 0; slot < kMethodsPerPage; ++slot) {
+            const auto *method = settings_calculation_method_at(first + slot);
+            if (method != nullptr && method_box(slot).contains(x, y)) return {Action::SelectMethod, method->id};
         }
-        if (inside(x, y, 34, 580, 232, 638)) return {DeviceSettingsActionType::PreviousMethodPage};
-        if (inside(x, y, 248, 580, 446, 638)) return {DeviceSettingsActionType::NextMethodPage};
-        if (inside(x, y, 34, 670, 446, 728)) return {DeviceSettingsActionType::Back};
+        if (Box{41, 640, 190, 48}.contains(x, y)) return {Action::PreviousMethodPage};
+        if (Box{250, 640, 190, 48}.contains(x, y)) return {Action::NextMethodPage};
+        if (kBack.contains(x, y)) return {Action::Back};
     } else if (page == DeviceSettingsPage::CustomMethod) {
-        if (inside(x, y, 34, 150, 446, 226)) return {DeviceSettingsActionType::EditCustomFajr};
-        if (inside(x, y, 34, 260, 446, 336)) return {DeviceSettingsActionType::EditCustomIsha};
-        if (inside(x, y, 34, 560, 446, 636)) return {DeviceSettingsActionType::FinishCustomMethod};
-        if (inside(x, y, 34, 670, 446, 728)) return {DeviceSettingsActionType::Back};
+        if (Box{41, 240, 399, 77}.contains(x, y)) return {Action::EditCustomFajr};
+        if (Box{41, 352, 399, 77}.contains(x, y)) return {Action::EditCustomIsha};
+        if (Box{41, 574, 399, 64}.contains(x, y)) return {Action::FinishCustomMethod};
+        if (kBack.contains(x, y)) return {Action::Back};
     } else if (page == DeviceSettingsPage::Adjustments) {
         for (int index = 0; index < static_cast<int>(kPrayerAdjustmentCount); ++index) {
-            const int top = 112 + index * 73;
-            if (inside(x, y, 34, top, 96, top + 58)) return {DeviceSettingsActionType::AdjustmentMinus, index};
-            if (inside(x, y, 384, top, 446, top + 58)) return {DeviceSettingsActionType::AdjustmentPlus, index};
+            if (adjustment_box(index, false).contains(x, y)) return {Action::AdjustmentMinus, index};
+            if (adjustment_box(index, true).contains(x, y)) return {Action::AdjustmentPlus, index};
         }
-        if (inside(x, y, 34, 670, 446, 728)) return {DeviceSettingsActionType::Back};
+        if (kQiyam.contains(x, y)) return {Action::ToggleQiyamDisplay};
+        if (kBack.contains(x, y)) return {Action::Back};
     } else {
         for (int index = 0; index < 12; ++index) {
-            const int column = index % 3;
-            const int row_index = index / 3;
-            if (inside(x, y, 34 + column * 138, 220 + row_index * 88,
-                       158 + column * 138, 292 + row_index * 88)) {
-                if (index == 9) {
-                    const bool coordinate_editor =
-                        page == DeviceSettingsPage::LatitudeEditor ||
-                        page == DeviceSettingsPage::LongitudeEditor;
-                    return {coordinate_editor
-                                ? DeviceSettingsActionType::EditorSign
-                                : DeviceSettingsActionType::EditorDoubleZero};
-                }
-                if (index == 11) return {DeviceSettingsActionType::EditorDot};
-                return {DeviceSettingsActionType::EditorDigit,
-                        index == 10 ? 0 : index + 1};
-            }
+            if (!key_box(index).contains(x, y)) continue;
+            if (index == 9) return {page == DeviceSettingsPage::LatitudeEditor ||
+                                      page == DeviceSettingsPage::LongitudeEditor
+                                      ? Action::EditorSign : Action::EditorDoubleZero};
+            if (index == 11) return {Action::EditorDot};
+            return {Action::EditorDigit, index == 10 ? 0 : index + 1};
         }
-        if (inside(x, y, 34, 590, 158, 662)) return {DeviceSettingsActionType::EditorClear};
-        if (inside(x, y, 172, 590, 296, 662)) return {DeviceSettingsActionType::EditorBackspace};
-        if (inside(x, y, 310, 590, 446, 662)) return {DeviceSettingsActionType::EditorConfirm};
+        if (Box{41, 644, 125, 62}.contains(x, y)) return {Action::EditorClear};
+        if (Box{178, 644, 125, 62}.contains(x, y)) return {Action::EditorBackspace};
+        if (Box{315, 644, 125, 62}.contains(x, y)) return {Action::EditorConfirm};
     }
     return {};
 }
@@ -556,7 +387,7 @@ void prayer_settings_render_loading(Canvas &canvas,
                                     const char *title,
                                     const char *message)
 {
-    page_base(canvas, title, "STICKY SALAH");
-    centered(canvas, 240, 330, message, 2);
-    centered(canvas, 240, 390, "PLEASE WAIT", 2);
+    page_base(canvas, title, "INKSALAH");
+    ui::fitted_centered(canvas, 240, 330, message, 416, 24);
+    ui::centered(canvas, 240, 390, "Please wait", 20);
 }

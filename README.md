@@ -31,6 +31,7 @@ InkSalah turns the Seeed Studio reTerminal Sticky into a calm, always-visible Sa
 - **Native device settings.** Prayer configuration lives on the touchscreen; the captive portal is dedicated to Wi-Fi setup.
 - **Portrait and landscape layouts.** The IMU changes orientation after the device is physically rotated.
 - **Designed for ePaper.** Fast interaction refreshes, persistent monochrome artwork, and a three-minute idle path into deep sleep.
+- **Roboto typography.** Native-sized regular and bold glyphs, AM/PM time badges, and connected Arabic prayer labels.
 - **Private by design.** Wi-Fi credentials and prayer settings stay in ESP32 NVS storage.
 
 ## Interface
@@ -118,12 +119,15 @@ The IP-based location result is an estimate. Confirm the coordinates and UTC off
 | Gesture or action | Result |
 | --- | --- |
 | Swipe up from the bottom of the prayer screen | Open native settings |
+| Tap the gear on the prayer screen | Open native settings |
 | Swipe down from the top of settings | Validate, save, and return to the prayer screen |
 | Swipe right from the left edge inside a settings subpage | Return one level while keeping the draft |
 | Rotate the device | Switch between portrait and landscape after orientation settles |
 | Leave the device untouched for three minutes | Enter deep sleep with timer, button, and orientation wake sources |
 
-`PRAYER REMINDER` controls the optional buzzer at prayer boundaries. `QIYAM DISPLAY` controls whether Qiyam appears in the timeline and night status; hiding it leaves Isha active until the next Fajr.
+**Prayer Reminder** controls the optional buzzer at prayer boundaries. **Minute Adjustments → Show Qiyam** controls whether Qiyam appears in the schedule and night status; hiding it leaves Isha active until the next Fajr. The settings homepage contains Location, Calculation Method, Minute Adjustments, Prayer Reminder, and Wi-Fi Setup.
+
+The prayer screen uses 12-hour times with explicit **AM/PM** labels. The first-time setup screen offers **Save & Start**; subsequent settings sessions offer **Save & Exit** and **Discard & Exit**. **Back** in Wi-Fi setup returns to native settings using the saved network.
 
 ## Prayer-time model
 

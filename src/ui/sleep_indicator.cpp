@@ -18,6 +18,9 @@ constexpr int kCutoutRadius = 8;
 
 void sleep_indicator_render(Canvas &canvas)
 {
+    const GrayLevel background = canvas.pixel_at(kIndicatorLeft, kIndicatorTop);
+    const GrayLevel foreground = background <= GrayLevel::DarkGray
+                                     ? GrayLevel::White : GrayLevel::Black;
     // Clears a compact badge area, then carves one circle from another to
     // produce a crisp crescent without scaling a bitmap.
     // 先清理小型标记区域，再用两个圆形相减得到清晰月牙，无需缩放位图。
@@ -25,13 +28,13 @@ void sleep_indicator_render(Canvas &canvas)
                      kIndicatorTop,
                      kIndicatorSize,
                      kIndicatorSize,
-                     GrayLevel::White);
+                     background);
     canvas.fill_circle(kMoonCenterX,
                        kMoonCenterY,
                        kMoonRadius,
-                       GrayLevel::Black);
+                       foreground);
     canvas.fill_circle(kCutoutCenterX,
                        kCutoutCenterY,
                        kCutoutRadius,
-                       GrayLevel::White);
+                       background);
 }

@@ -18,7 +18,7 @@ constexpr CalculationMethodDefinition kCalculationMethods[] = {
     {10U, "QATAR", 180U, 0U, 90U},
     {11U, "MUIS", 200U, 180U, 0U},
     {12U, "UOIF", 120U, 120U, 0U},
-    {13U, "DIYANET", 180U, 170U, 0U},
+    {13U, "D\u0130B", 180U, 170U, 0U},
     {14U, "RUSSIA", 160U, 150U, 0U},
     {15U, "MOONSIGHTING", 180U, 180U, 0U, 0U, 0, true},
     {16U, "DUBAI", 182U, 182U, 0U},

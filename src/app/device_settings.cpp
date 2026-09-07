@@ -374,7 +374,7 @@ DeviceSettingsResult device_settings_run(Canvas &canvas,
         int y = 0;
         canvas.physical_to_logical(press.x, press.y, x, y);
         const DeviceSettingsAction action = prayer_settings_action_at(
-            state.page, x, y, state.method_page);
+            state.page, x, y, state.method_page, state.first_time);
         if (action.type == DeviceSettingsActionType::None) {
             continue;
         }

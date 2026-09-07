@@ -77,7 +77,8 @@ struct DeviceSettingsUiState {
 DeviceSettingsAction prayer_settings_action_at(DeviceSettingsPage page,
                                                 int x,
                                                 int y,
-                                                uint8_t method_page = 0U);
+                                                uint8_t method_page = 0U,
+                                                bool first_time = false);
 
 // Returns the parent page for one in-settings back gesture.
 // 返回设置内一次返回操作对应的上一级页面。
