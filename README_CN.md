@@ -21,6 +21,15 @@ InkSalah 将 Seeed Studio reTerminal Sticky 变成一块安静、常显的礼拜
 
 > 固件显示的是按所选规则计算出的礼拜时间窗口边界。参加集体礼拜或处理当地宗教实践时，请以清真寺或可信当地机构公布的时刻表及 iqamah 安排为准。
 
+## 当前版本：0.1.1
+
+- **完整的设备界面：** Roboto 字体、阿拉伯语连写、AM/PM 时间，以及分别设计的横竖屏拱形布局。
+- **顶部快捷操作：** 状态图标和文字沿同一水平中心线排列，齿轮与位置入口拥有扩大的触摸区域，点击位置直接打开 Location。
+- **统一的圆角控件：** 礼拜时间框、倒计时和设置按钮采用连续的圆角边缘。
+- **休眠画面保留：** 姿态唤醒后方向相同时，屏幕继续保留礼拜页面和月牙标记。
+
+完整更新见[更新记录](CHANGELOG.md)，自动测试及构建产物见 [CI 构建](https://github.com/limengdu/reTerminal_Sticky_InkSalah/actions/workflows/ci.yml)。
+
 ## 为什么做 InkSalah
 
 - **显示时间窗口，而不只显示一个闹钟时刻。** 页面会告诉你当前处在哪个礼拜窗口、什么时候结束、还剩多久以及下一次必行礼拜。
@@ -43,12 +52,22 @@ InkSalah 将 Seeed Studio reTerminal Sticky 变成一块安静、常显的礼拜
     <td align="center"><img src="docs/images/device-settings.png" width="310" alt="设备原生设置" /></td>
   </tr>
   <tr>
-    <td align="center"><strong>礼拜窗口</strong><br />当前状态和当天时间轴</td>
-    <td align="center"><strong>设备原生设置</strong><br />地点、算法、微调、提醒与 Qiyam</td>
+    <td align="center"><strong>礼拜窗口</strong><br />当前窗口、倒计时和当天六个时间</td>
+    <td align="center"><strong>设备原生设置</strong><br />五个设置分类，以及保存或丢弃的退出操作</td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/images/wifi-setup.png" width="310" alt="设备屏幕上的首次 Wi-Fi 配网引导" /></td>
+    <td align="center"><img src="docs/images/calculation-method.png" width="310" alt="计算机构和独立的 Standard 或 Hanafi 晡礼规则选择" /></td>
+  </tr>
+  <tr>
+    <td align="center"><strong>Wi-Fi 引导</strong><br />连接手机、输入密码并打开配网页面</td>
+    <td align="center"><strong>计算规则</strong><br />分别选择计算机构和 Asr 教法规则</td>
   </tr>
 </table>
 
-以上图片直接由固件使用的画布和页面代码渲染，并非另外制作的概念稿。
+以上图片由 **0.1.1** 版本的原生渲染代码生成，与设备使用相同的图案、Roboto 字形和绘图函数。礼拜页面使用 Istanbul、2026 年 9 月 4 日作为固定演示场景。
+
+更多效果：[开启 Qiyam](docs/images/prayer-portrait-qiyam.png) · [休眠月牙](docs/images/ui-review/portrait-sleep.png) · [状态栏对齐](docs/images/ui-review/status-bar-alignment.png) · [圆角控件细节](docs/images/ui-review/rounded-controls.png)。
 
 ## 硬件目标
 
@@ -134,6 +153,29 @@ pio device monitor --port /dev/cu.usbmodemXXXX --baud 115200
 礼拜页顶部左侧显示电量，中间显示位置，右侧显示计算方法及齿轮设置入口。整排图标和文字的可见中心位于同一水平线上。进入深度睡眠后，电量旁出现小月牙。点击定位图标或城市名称直接进入 Location，点击齿轮进入设置首页；两组快捷入口的触摸范围均向图案外围扩展。较长的计算方法优先显示机构名，超出空间的名称以省略号收尾，完整设置值仍保留。
 
 礼拜页面使用明确标注 **AM/PM** 的 12 小时制。首次设置显示 **Save & Start**，日常设置显示 **Save & Exit** 和 **Discard & Exit**。Wi-Fi 配网页的 **Back** 按钮使用已保存网络返回设备设置。
+
+## 设备上的设置
+
+| 设置项 | 可以调整什么 |
+| --- | --- |
+| **Location** | 通过已保存的 Wi-Fi 网络估算位置，手动输入经纬度，并调整固定 UTC 偏移 |
+| **Calculation Method** | 选择机构或自定义晨昏规则，再独立选择 Standard/Hanafi 晡礼规则 |
+| **Minute Adjustments** | 每个时间边界独立调整 ±30 分钟，并通过 **Show Qiyam** 控制显示 |
+| **Prayer Reminder** | 开启或关闭礼拜边界的蜂鸣提示 |
+| **Wi-Fi Setup** | 打开手机配网流程；点击 **Back** 使用已保存网络返回 |
+
+<table>
+  <tr>
+    <td align="center"><img src="docs/images/device-location.png" width="310" alt="包含网络定位、经纬度和 UTC 偏移的设备 Location 页面" /></td>
+    <td align="center"><img src="docs/images/minute-adjustments.png" width="310" alt="七个时间边界的分钟微调及 Show Qiyam 开关" /></td>
+  </tr>
+  <tr>
+    <td align="center"><strong>Location</strong><br />点击顶部城市或定位图标即可直接进入</td>
+    <td align="center"><strong>分钟微调</strong><br />分别调整时间，并选择是否显示 Qiyam</td>
+  </tr>
+</table>
+
+设置始终在设备上以竖屏显示。返回上一级会保留草稿；**Save & Exit** 应用草稿，**Discard & Exit** 恢复已保存配置。坐标键盘中，**Delete** 清空整个输入框，**Back** 删除一个字符，**OK** 确认输入。Wi-Fi 配网和日常设置完成后，设备原地返回相应页面。
 
 ## 礼拜时间模型
 

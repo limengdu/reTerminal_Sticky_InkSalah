@@ -21,6 +21,15 @@ InkSalah turns the Seeed Studio reTerminal Sticky into a calm, always-visible Sa
 
 > Prayer times shown by this firmware are calculated time-window boundaries. For congregational prayer and local religious guidance, follow the timetable and iqamah schedule published by your mosque or trusted local authority.
 
+## Current version: 0.1.1
+
+- **A complete device UI:** Roboto typography, connected Arabic labels, AM/PM times, and separate portrait and landscape arch layouts.
+- **Direct header controls:** aligned status icons and text, generous gear and location touch targets, and one-tap access to Location.
+- **Consistent rounded controls:** continuous capsule edges across prayer times, countdowns, and settings buttons.
+- **A retained sleep display:** the prayer page and crescent remain visible when an orientation wake settles in the same direction.
+
+See the [changelog](CHANGELOG.md) for the full update and [CI builds](https://github.com/limengdu/reTerminal_Sticky_InkSalah/actions/workflows/ci.yml) for automated tests and build artifacts.
+
 ## Why InkSalah
 
 - **Prayer windows, not isolated alarms.** See the current window, its end, remaining time, and the next obligatory prayer.
@@ -42,12 +51,22 @@ InkSalah turns the Seeed Studio reTerminal Sticky into a calm, always-visible Sa
     <td align="center"><img src="docs/images/device-settings.png" width="310" alt="Native device settings" /></td>
   </tr>
   <tr>
-    <td align="center"><strong>Prayer window</strong><br />Current state and today's timeline</td>
-    <td align="center"><strong>On-device settings</strong><br />Location, method, offsets, reminder, and Qiyam</td>
+    <td align="center"><strong>Prayer window</strong><br />Current window, countdown, and six daily times</td>
+    <td align="center"><strong>On-device settings</strong><br />Five categories with Save & Exit and Discard & Exit</td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/images/wifi-setup.png" width="310" alt="First-time Wi-Fi setup instructions on the device" /></td>
+    <td align="center"><img src="docs/images/calculation-method.png" width="310" alt="Calculation method and independent Standard or Hanafi Asr selection" /></td>
+  </tr>
+  <tr>
+    <td align="center"><strong>Wi-Fi onboarding</strong><br />Connect your phone, enter the password, and open setup</td>
+    <td align="center"><strong>Calculation rules</strong><br />Institutional profile and independent Asr school</td>
   </tr>
 </table>
 
-The screenshots above are rendered by the same canvas and page code used by the firmware. They are not separate design mockups.
+These screenshots are generated from the native renderer in version **0.1.1**, using the same artwork, Roboto glyphs, and drawing functions as the device. The prayer examples use Istanbul and 4 September 2026 as a fixed demonstration scenario.
+
+Additional views: [Qiyam enabled](docs/images/prayer-portrait-qiyam.png) · [sleep crescent](docs/images/ui-review/portrait-sleep.png) · [status-bar alignment](docs/images/ui-review/status-bar-alignment.png) · [rounded-control details](docs/images/ui-review/rounded-controls.png).
 
 The prayer header groups battery status on the left, location in the center, and the calculation method with a settings shortcut on the right. Icons and text share one horizontal centerline. A crescent appears beside the battery during deep sleep. Tap the location icon or city name to open Location directly; the gear opens the settings homepage. Both shortcuts have expanded touch areas around their artwork. Wide method names use the available space for the institution name, and long labels are shortened visually while the full setting remains saved.
 
@@ -134,11 +153,34 @@ An orientation wake that settles in the same screen direction preserves the disp
 
 The prayer screen uses 12-hour times with explicit **AM/PM** labels. The first-time setup screen offers **Save & Start**; subsequent settings sessions offer **Save & Exit** and **Discard & Exit**. **Back** in Wi-Fi setup returns to native settings using the saved network.
 
+## Settings on the device
+
+| Section | What you can configure |
+| --- | --- |
+| **Location** | Estimate location through the saved Wi-Fi network, enter latitude and longitude, and adjust the fixed UTC offset |
+| **Calculation Method** | Choose an institution or custom twilight rule, then select Standard or Hanafi for Asr |
+| **Minute Adjustments** | Adjust each boundary by ±30 minutes and toggle **Show Qiyam** |
+| **Prayer Reminder** | Enable or disable the prayer-boundary buzzer |
+| **Wi-Fi Setup** | Open the phone provisioning flow; **Back** returns with the saved network |
+
+<table>
+  <tr>
+    <td align="center"><img src="docs/images/device-location.png" width="310" alt="Native Location page with network detection, coordinates, and UTC offset" /></td>
+    <td align="center"><img src="docs/images/minute-adjustments.png" width="310" alt="Minute offsets for all seven boundaries and the Show Qiyam switch" /></td>
+  </tr>
+  <tr>
+    <td align="center"><strong>Location</strong><br />Tap the city or location pin to open this page directly</td>
+    <td align="center"><strong>Minute adjustments</strong><br />Independent offsets and an optional Qiyam row</td>
+  </tr>
+</table>
+
+Settings remain on the device in portrait orientation. Returning one level keeps the draft; **Save & Exit** applies it and **Discard & Exit** restores the saved configuration. The coordinate keypad uses **Delete** to clear the field, **Back** to remove one character, and **OK** to confirm. Wi-Fi setup and regular settings return to the device flow without restarting it.
+
 ## Prayer-time model
 
 The calculation engine uses latitude, longitude, civil date, fixed UTC offset, twilight profile, and Asr shadow rule. It calculates yesterday, today, and tomorrow so Isha and Qiyam remain correct across midnight.
 
-The seven displayed boundaries are:
+The six standard boundaries and optional Qiyam are:
 
 - **Fajr** — start of the dawn prayer window.
 - **Sunrise** — end of Fajr; a boundary rather than one of the five obligatory prayers.
