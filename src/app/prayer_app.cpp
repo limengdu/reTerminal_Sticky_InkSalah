@@ -86,8 +86,17 @@ CanvasRotation detect_rotation()
     return rotation;
 }
 
-[[noreturn]] void enter_deep_sleep(Canvas &canvas,
-                                   uint64_t timer_wakeup_us)
+enum class SleepDisplayMode {
+    RefreshCanvas,
+    PreservePanel,
+};
+
+// Prepares wake sources and sleeps with either a rendered or retained page.
+// 配置唤醒源，并携带当前绘制页面或屏幕保留页面进入休眠。
+[[noreturn]] void enter_deep_sleep(
+    Canvas &canvas,
+    uint64_t timer_wakeup_us,
+    SleepDisplayMode display_mode = SleepDisplayMode::RefreshCanvas)
 {
     const esp_err_t imu_result =
         sticky_imu_prepare_orientation_wakeup();
@@ -105,17 +114,22 @@ CanvasRotation detect_rotation()
                     esp_err_to_name(touch_result));
     }
 
-    sleep_indicator_render(canvas);
-    sticky_display_cancel_app_transition_refresh();
-    const esp_err_t indicator_result =
-        sticky_display_refresh_monochrome();
-    if (indicator_result != ESP_OK) {
-        STICKY_LOGW(kTag,
-                    "sleep=indicator position=top_left result=%s",
-                    esp_err_to_name(indicator_result));
+    if (display_mode == SleepDisplayMode::RefreshCanvas) {
+        sleep_indicator_render(canvas);
+        sticky_display_cancel_app_transition_refresh();
+        const esp_err_t indicator_result =
+            sticky_display_refresh_monochrome();
+        if (indicator_result != ESP_OK) {
+            STICKY_LOGW(kTag,
+                        "sleep=indicator position=top_left result=%s",
+                        esp_err_to_name(indicator_result));
+        } else {
+            STICKY_LOGI(kTag,
+                        "sleep=indicator position=top_left result=ok");
+        }
     } else {
         STICKY_LOGI(kTag,
-                    "sleep=indicator position=top_left result=ok");
+                    "sleep=display action=preserve result=ok");
     }
 
     const esp_err_t display_result = sticky_display_sleep();
@@ -606,7 +620,8 @@ uint64_t sleep_interval_us(const PrayerNext &next,
             STICKY_LOGI(kTag,
                         "input=orientation_wakeup state=unchanged rotation=%u result=resleep",
                         static_cast<unsigned>(detected_rotation));
-            enter_deep_sleep(canvas, retry_sleep_us);
+            enter_deep_sleep(canvas, retry_sleep_us,
+                             SleepDisplayMode::PreservePanel);
         }
         canvas.set_rotation(detected_rotation);
         sticky_display_set_battery_overlay_enabled(true);

@@ -127,6 +127,8 @@ The IP-based location result is an estimate. Confirm the coordinates and UTC off
 | Rotate the device | Switch between portrait and landscape after orientation settles |
 | Leave the device untouched for three minutes | Enter deep sleep with timer, button, and orientation wake sources |
 
+An orientation wake that settles in the same screen direction preserves the displayed page and crescent, then resumes deep sleep. A changed orientation, timer wake, or button wake follows the regular page-rendering flow.
+
 **Prayer Reminder** controls the optional buzzer at prayer boundaries. **Minute Adjustments → Show Qiyam** controls whether Qiyam appears in the schedule; hiding it leaves Isha active until the next Fajr. The settings homepage contains Location, Calculation Method, Minute Adjustments, Prayer Reminder, and Wi-Fi Setup.
 
 The prayer screen uses 12-hour times with explicit **AM/PM** labels. The first-time setup screen offers **Save & Start**; subsequent settings sessions offer **Save & Exit** and **Discard & Exit**. **Back** in Wi-Fi setup returns to native settings using the saved network.
@@ -189,7 +191,7 @@ bash tools/run_host_tests.sh
 Expected result:
 
 ```text
-[host-test] PASS 27/27
+[host-test] PASS 28/28
 ```
 
 Build both firmware profiles before submitting a change:

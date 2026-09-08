@@ -126,6 +126,8 @@ pio device monitor --port /dev/cu.usbmodemXXXX --baud 115200
 | 转动设备 | 姿态稳定后切换横屏或竖屏 |
 | 三分钟没有操作 | 进入深度睡眠，并保留定时器、顶部按键和姿态唤醒 |
 
+姿态唤醒后，如果稳定下来的屏幕方向与休眠前相同，设备保留屏幕上的完整页面及月牙，并继续深度睡眠。方向改变、定时唤醒和按键唤醒时，按正常流程绘制页面。
+
 **Prayer Reminder** 控制礼拜边界提示音。**Minute Adjustments → Show Qiyam** 控制 Qiyam 是否出现在时刻表中；关闭后 Isha 仍持续到次日 Fajr。设置首页包含 Location、Calculation Method、Minute Adjustments、Prayer Reminder 和 Wi-Fi Setup 五个入口。
 
 礼拜页顶部左侧显示电量，中间显示位置，右侧显示计算方法及齿轮设置入口。进入深度睡眠后，电量旁出现小月牙。较长的计算方法优先显示机构名，超出空间的名称以省略号收尾，完整设置值仍保留。
@@ -188,7 +190,7 @@ bash tools/run_host_tests.sh
 成功标志：
 
 ```text
-[host-test] PASS 27/27
+[host-test] PASS 28/28
 ```
 
 提交改动前构建两套固件：

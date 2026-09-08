@@ -38,10 +38,12 @@ bash tools/run_host_tests.sh
 Expected result:
 
 ```text
-[host-test] PASS 27/27
+[host-test] PASS 28/28
 ```
 
-Coverage includes solar calculations, Hanafi Asr, Qiyam, cross-midnight windows, settings storage policies, touch gestures, Wi-Fi parsing and scan models, captive portal behavior, location policies, screen orientation, deep-sleep indicators, and UI layout safeguards.
+Coverage includes solar calculations, Hanafi Asr, Qiyam, cross-midnight windows, settings storage policies, touch gestures, Wi-Fi parsing and scan models, captive portal behavior, location policies, screen orientation, retained display contents across orientation wakes, deep-sleep indicators, and UI layout safeguards.
+
+`test/prayer_sleep_display_test.py` compiles the production sleep function and unchanged-orientation branch with host-side board hooks. It checks retained panel pixels, repeated wakes in all four rotations, normal crescent rendering, wake routing, and peripheral error paths. The display driver and electrical wake behavior are verified on hardware.
 
 ## Device UI preview
 
@@ -113,7 +115,7 @@ The landscape background places two uniformly scaled copies of the source arch. 
 
 ### UI verification
 
-1. Run the host suite and build both profiles; expect `PASS 27/27` and `SUCCESS`.
+1. Run the host suite and build both profiles; expect `PASS 28/28` and `SUCCESS`.
 2. Render the prayer page in both orientations, with Qiyam on and off. Every time has an AM/PM label; the seventh row remains inside the screen.
 3. Render `settings-main-first-time`: the bottom row contains one Save & Start action. Render `settings-main`: Save & Exit and Discard & Exit are separate actions.
 4. On the device, tap the gear, open each settings category, and test the new button positions. In Minute Adjustments, toggle Show Qiyam and save; confirm the row count changes.
@@ -148,6 +150,8 @@ The program starts in `src/main.cpp` and enters the application cycle in `src/ap
 9. monitor touch and orientation until the next refresh or idle timeout; and
 10. arm timer, button, and orientation wake sources before deep sleep.
 
+On the initial cycle of an orientation wake, an unchanged direction selects `SleepDisplayMode::PreservePanel`. `enter_deep_sleep` receives the canvas, timer interval in microseconds, and display mode; it prepares wake sources, powers down peripherals, and enters deep sleep without returning. `PreservePanel` keeps the existing ePaper image, while the default `RefreshCanvas` mode publishes the rendered page with its sleep crescent. Timer and button wakes continue through page rendering.
+
 ## Physical-device verification
 
 Use a release build for final behavior and a debug build when logs are required.
@@ -161,6 +165,18 @@ Use a release build for final behavior and a debug build when logs are required.
 5. Swipe up to settings, edit and save each settings category, and confirm the prayer page updates.
 6. Rotate through portrait and landscape and confirm one clean transition per settled orientation.
 7. Leave the device untouched for three minutes and confirm deep sleep, then test timer, top-button, and physical-rotation wake-up.
+
+### Retained display after orientation wake
+
+Start with saved Wi-Fi and prayer settings on a flashed device. Repeat these checks in portrait and landscape, on battery and external power:
+
+1. Leave the prayer page idle for three minutes. Confirm the complete page remains visible and the crescent appears.
+2. Move the sleeping device and return it to the same screen direction. When the log reports `input=orientation_wakeup state=unchanged`, expect `sleep=display action=preserve result=ok` followed by `power=deep_sleep`. The existing page and crescent remain visible throughout this return to sleep.
+3. Repeat the same-direction wake several times. Each matching log sequence preserves the complete page.
+4. Rotate the sleeping device to the other screen direction and hold it steady. Confirm the page renders in that direction and settings open normally with an upward swipe.
+5. Wake with the top button, then separately allow a timer wake at the logged interval. Confirm the current prayer page renders and the normal three-minute idle behavior resumes.
+
+The matching unchanged-direction branch performs zero refreshes. Normal page transitions retain their existing refresh modes; inspect the physical display for image retention after repeated transitions.
 
 ### Edge cases
 
