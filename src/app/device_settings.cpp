@@ -302,7 +302,8 @@ DeviceSettingsGesture classify_settings_gesture(
 
 DeviceSettingsResult device_settings_run(Canvas &canvas,
                                          SalahSettings &settings,
-                                         bool first_time)
+                                         bool first_time,
+                                         DeviceSettingsPage initial_page)
 {
     app_log_register_tag(kTag);
     // Restores the persisted snapshot when the user cancels or opens Wi-Fi.
@@ -327,7 +328,7 @@ DeviceSettingsResult device_settings_run(Canvas &canvas,
         detect_location(settings, state, canvas);
     }
     sticky_touch_clear_press();
-    state.page = DeviceSettingsPage::Main;
+    state.page = prayer_settings_entry_page(first_time, initial_page);
     refresh(canvas, settings, state);
 
     // Keeps the native menu open until the user chooses a terminal action.

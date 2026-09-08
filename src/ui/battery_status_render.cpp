@@ -4,6 +4,7 @@
 #include <cstdio>
 
 #include "battery_status_overlay_theme.h"
+#include "font.h"
 #include "status_bar_layout.h"
 
 namespace {
@@ -36,7 +37,7 @@ void battery_status_render(Canvas &canvas, bool valid, int percent,
     const bool prayer = canvas.prayer_header();
     const int width = prayer ? 24 : 34;
     const int x = area.x + 1;
-    const int y = area.y + 6;
+    const int y = prayer ? kPrayerStatusCenterY - 8 : area.y + 6;
     percent = std::clamp(percent, 0, 100);
     canvas.draw_rect(x, y, width, 16, theme.foreground);
     canvas.fill_rect(x + width, y + 5, 4, 6, theme.foreground);
@@ -53,6 +54,8 @@ void battery_status_render(Canvas &canvas, bool valid, int percent,
     const auto weight = prayer ? TextWeight::Bold : TextWeight::Regular;
     const int label_width = Canvas::text_width(label, 20, weight);
     const int offset = prayer ? 0 : (area.width - 43 - label_width) / 2;
-    canvas.draw_text_sized(label_x + offset, prayer ? area.y + 2 : area.y + 7,
+    const int label_y = prayer ? font_text_centered_y(label, 20, kPrayerStatusCenterY, true)
+                               : area.y + 7;
+    canvas.draw_text_sized(label_x + offset, label_y,
                            label, 20, theme.foreground, weight);
 }

@@ -14,7 +14,9 @@ void sleep_indicator_render(Canvas &canvas)
 {
     const auto area = sleep_status_area(canvas);
     const int center_x = area.x + 13;
-    const int center_y = area.y + 13;
+    // The visible crescent spans rows -8 through +9 around its circle center.
+    // 弯月可见部分覆盖相对圆心的 -8 到 +9 行。
+    const int center_y = canvas.prayer_header() ? kPrayerStatusCenterY - 1 : area.y + 13;
     const GrayLevel background = canvas.pixel_at(area.x, area.y);
     const GrayLevel foreground = background <= GrayLevel::DarkGray
                                      ? GrayLevel::White : GrayLevel::Black;

@@ -296,6 +296,7 @@ bool wake_gesture_requests_settings(Canvas &canvas)
 enum class PrayerInputResult : uint8_t {
     SleepRequested,
     SettingsRequested,
+    LocationRequested,
     RefreshRequested,
 };
 
@@ -371,10 +372,16 @@ PrayerInputResult wait_for_prayer_input(Canvas &canvas,
             int x = 0;
             int y = 0;
             canvas.physical_to_logical(press.x, press.y, x, y);
-            if (prayer_page_settings_action_at(x, y, canvas.width(), canvas.height())) {
+            const PrayerHeaderAction action = prayer_page_header_action_at(
+                x, y, canvas.width(), canvas.height());
+            if (action != PrayerHeaderAction::None) {
                 last_user_activity_ms = monotonic_ms();
                 if (imu_started) sticky_imu_stop_monitoring();
-                return PrayerInputResult::SettingsRequested;
+                STICKY_LOGI(kTag, "settings=header destination=%s result=open",
+                            action == PrayerHeaderAction::Location ? "location" : "main");
+                return action == PrayerHeaderAction::Location
+                           ? PrayerInputResult::LocationRequested
+                           : PrayerInputResult::SettingsRequested;
             }
         }
 
@@ -445,15 +452,17 @@ PrayerInputResult wait_for_prayer_input(Canvas &canvas,
 
 bool run_settings(Canvas &canvas,
                   SalahSettings &settings,
-                  bool first_time)
+                  bool first_time,
+                  DeviceSettingsPage initial_page = DeviceSettingsPage::Main)
 {
     const int16_t previous_utc_offset_minutes =
         settings.utc_offset_minutes;
     DeviceSettingsResult result = DeviceSettingsResult::Cancelled;
     do {
-        result = device_settings_run(canvas, settings, first_time);
+        result = device_settings_run(canvas, settings, first_time, initial_page);
         if (result == DeviceSettingsResult::WifiRequested) {
             show_setup(canvas, settings);
+            initial_page = DeviceSettingsPage::Main;
         }
     } while (result == DeviceSettingsResult::WifiRequested);
     if (result == DeviceSettingsResult::Failed) {
@@ -598,8 +607,11 @@ uint64_t sleep_interval_us(const PrayerNext &next,
             sticky_display_refresh_monochrome();
             const PrayerInputResult input_result = wait_for_prayer_input(
                 canvas, kPoweredErrorRefreshMs, last_user_activity_ms);
-            if (input_result == PrayerInputResult::SettingsRequested) {
-                if (run_settings(canvas, settings, false)) {
+            if (input_result == PrayerInputResult::SettingsRequested ||
+                input_result == PrayerInputResult::LocationRequested) {
+                const auto initial_page = input_result == PrayerInputResult::LocationRequested
+                                              ? DeviceSettingsPage::Location : DeviceSettingsPage::Main;
+                if (run_settings(canvas, settings, false, initial_page)) {
                     s_last_time_sync_date = 0U;
                 }
                 last_user_activity_ms = monotonic_ms();
@@ -652,8 +664,11 @@ uint64_t sleep_interval_us(const PrayerNext &next,
             canvas,
             static_cast<uint32_t>(sleep_us / 1000ULL),
             last_user_activity_ms);
-        if (input_result == PrayerInputResult::SettingsRequested) {
-            if (run_settings(canvas, settings, false)) {
+        if (input_result == PrayerInputResult::SettingsRequested ||
+            input_result == PrayerInputResult::LocationRequested) {
+            const auto initial_page = input_result == PrayerInputResult::LocationRequested
+                                          ? DeviceSettingsPage::Location : DeviceSettingsPage::Main;
+            if (run_settings(canvas, settings, false, initial_page)) {
                 s_last_time_sync_date = 0U;
             }
             last_user_activity_ms = monotonic_ms();

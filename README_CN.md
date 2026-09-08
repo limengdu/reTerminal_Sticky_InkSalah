@@ -121,6 +121,7 @@ pio device monitor --port /dev/cu.usbmodemXXXX --baud 115200
 | --- | --- |
 | 从礼拜页面底部向上滑 | 打开设备原生设置 |
 | 点击礼拜页面的齿轮 | 打开设备原生设置 |
+| 点击顶部定位图标或城市名称 | 直接打开设备原生 Location 设置页 |
 | 从设置页面顶部向下滑 | 验证、保存并返回礼拜页面 |
 | 在设置子页面从左侧边缘向右滑 | 返回上一级并保留草稿 |
 | 转动设备 | 姿态稳定后切换横屏或竖屏 |
@@ -130,7 +131,7 @@ pio device monitor --port /dev/cu.usbmodemXXXX --baud 115200
 
 **Prayer Reminder** 控制礼拜边界提示音。**Minute Adjustments → Show Qiyam** 控制 Qiyam 是否出现在时刻表中；关闭后 Isha 仍持续到次日 Fajr。设置首页包含 Location、Calculation Method、Minute Adjustments、Prayer Reminder 和 Wi-Fi Setup 五个入口。
 
-礼拜页顶部左侧显示电量，中间显示位置，右侧显示计算方法及齿轮设置入口。进入深度睡眠后，电量旁出现小月牙。较长的计算方法优先显示机构名，超出空间的名称以省略号收尾，完整设置值仍保留。
+礼拜页顶部左侧显示电量，中间显示位置，右侧显示计算方法及齿轮设置入口。整排图标和文字的可见中心位于同一水平线上。进入深度睡眠后，电量旁出现小月牙。点击定位图标或城市名称直接进入 Location，点击齿轮进入设置首页；两组快捷入口的触摸范围均向图案外围扩展。较长的计算方法优先显示机构名，超出空间的名称以省略号收尾，完整设置值仍保留。
 
 礼拜页面使用明确标注 **AM/PM** 的 12 小时制。首次设置显示 **Save & Start**，日常设置显示 **Save & Exit** 和 **Discard & Exit**。Wi-Fi 配网页的 **Back** 按钮使用已保存网络返回设备设置。
 
@@ -190,7 +191,7 @@ bash tools/run_host_tests.sh
 成功标志：
 
 ```text
-[host-test] PASS 28/28
+[host-test] PASS 29/29
 ```
 
 提交改动前构建两套固件：

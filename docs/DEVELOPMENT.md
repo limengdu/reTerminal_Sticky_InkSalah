@@ -38,12 +38,14 @@ bash tools/run_host_tests.sh
 Expected result:
 
 ```text
-[host-test] PASS 28/28
+[host-test] PASS 29/29
 ```
 
 Coverage includes solar calculations, Hanafi Asr, Qiyam, cross-midnight windows, settings storage policies, touch gestures, Wi-Fi parsing and scan models, captive portal behavior, location policies, screen orientation, retained display contents across orientation wakes, deep-sleep indicators, and UI layout safeguards.
 
 `test/prayer_sleep_display_test.py` compiles the production sleep function and unchanged-orientation branch with host-side board hooks. It checks retained panel pixels, repeated wakes in all four rotations, normal crescent rendering, wake routing, and peripheral error paths. The display driver and electrical wake behavior are verified on hardware.
+
+`test/prayer_status_bar_test.cpp` measures the actual rendered bounds of every header element in all four rotations. It covers short and long city names, accented glyphs, multiple method labels, charge values, icon padding, and shortcut boundaries. Settings-page tests cover direct Location entry, first-time entry, and the Location-to-home back path.
 
 ## Device UI preview
 
@@ -107,20 +109,35 @@ swift tools/generate_arabic_prayer_assets.swift src/ui/arabic_prayer_assets.cpp
 
 To extract artwork from the original design again, run `tools/extract_inksalah_pdf_assets.py` with the path to `INKSALAH.pdf` as its argument, then regenerate the artwork arrays. The source fingerprint and asset provenance are recorded in `assets/ui/PDF_SOURCE.md` and `assets/fonts/README.md`.
 
-The UI flow starts with `prayer_page_render_schedule`, which draws the background, date header, current window, and six or seven time rows. `prayer_settings_render` draws the selected settings page; `prayer_settings_action_at` maps a tap to an action for `device_settings.cpp` to apply. The gear shortcut and bottom-edge swipe both enter this existing native settings flow.
+The UI flow starts with `prayer_page_render_schedule`, which draws the background, date header, current window, and six or seven time rows. `prayer_settings_render` draws the selected settings page; `prayer_settings_action_at` maps a tap to an action for `device_settings.cpp` to apply. The gear shortcut and bottom-edge swipe open the settings homepage. `prayer_page_header_action_at` maps a logical tap to `Settings`, `Location`, or `None`; the location result travels through `wait_for_prayer_input` and `run_settings` to the initial page of `device_settings_run`. `prayer_settings_entry_page` selects the homepage for first-time setup and Location for the daily-use location shortcut. Returning from Wi-Fi setup opens the settings homepage. All settings screens retain their portrait layout and existing save/back behavior.
 
 The prayer renderer selects its status-bar layout on the canvas. `battery_status_render` receives the measured charge and external-power state, then paints the matching battery area; `sleep_indicator_render` uses the neighboring crescent area. Clearing the canvas restores the regular status layout for setup and settings pages. The status painters share their geometry through `status_bar_layout.h`.
+
+The header axis is `kPrayerStatusCenterY = 38`. `font_text_centered_y` receives text, font size, axis, and weight, then returns the drawing origin based on occupied glyph rows. `prayer_status_bitmap_y` returns the equivalent origin for an icon using pixels inside its visible width. Whole-pixel placement keeps the center within half a pixel of the axis for both odd- and even-height shapes. The location and settings touch targets span y=8 through y=67, meet at x=308 in portrait and x=558 in landscape, and retain the existing artwork sizes. Their geometry also defines the available header text widths.
+
+See the [native status-bar rendering](images/ui-review/status-bar-alignment.png) for both orientations with the sleep crescent visible.
 
 The landscape background places two uniformly scaled copies of the source arch. `date_header` centers the calendar above the two content columns, `hero` composes the current prayer and countdown, and `times` right-aligns each English/Arabic label group beside its time badge. Seven-row schedules use a tighter row rhythm while keeping Latin text at least 20 pixels. Arabic row labels use 20-pixel type; hero labels use native 28-pixel portrait and 40-pixel landscape bold type.
 
 ### UI verification
 
-1. Run the host suite and build both profiles; expect `PASS 28/28` and `SUCCESS`.
+1. Run the host suite and build both profiles; expect `PASS 29/29` and `SUCCESS`.
 2. Render the prayer page in both orientations, with Qiyam on and off. Every time has an AM/PM label; the seventh row remains inside the screen.
 3. Render `settings-main-first-time`: the bottom row contains one Save & Start action. Render `settings-main`: Save & Exit and Discard & Exit are separate actions.
 4. On the device, tap the gear, open each settings category, and test the new button positions. In Minute Adjustments, toggle Show Qiyam and save; confirm the row count changes.
 5. Open Wi-Fi Setup and tap Back. Expect a return to native settings with the saved network available.
 6. Test midnight, noon, long city and method names, and an Isha window ending the following day. Rotate the device, then leave it idle for three minutes; the small sleep crescent should appear beside the battery against the black header.
+
+### Header shortcuts
+
+On a configured device, verify both portrait and landscape prayer pages:
+
+1. Inspect the battery, charge digits, crescent, location pin, city, gear, and method. Their visible vertical centers align along the same horizontal axis; use the sleep preview or wait three minutes to include the crescent.
+2. Tap the gear and the padded space immediately above, below, and beside it. Each tap opens the native settings homepage.
+3. Tap the location pin, then the city name. Each opens Location directly with the current saved values.
+4. Change a coordinate and swipe right from the left edge. The settings homepage retains the draft; save to apply it or discard to restore the original values. A downward swipe from Location keeps the existing validate-and-save behavior.
+5. Tap near the boundary between location and method, then on the date, battery, and crescent areas. The two header targets remain distinct, and areas outside them retain their existing behavior.
+6. After entering through Location, return to the homepage and open Wi-Fi setup. Its Back action returns to the settings homepage. First-time setup still starts at the homepage with Save & Start.
 7. Check battery values 0 and 100, charging and unplugged states, and unavailable readings. The battery and crescent occupy separate areas, and the city and method remain readable after a battery update.
 
 Host previews verify rendering and hit regions. Touch responsiveness, contrast, waveform behavior, and ghosting are verified on the physical display.

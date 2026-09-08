@@ -140,6 +140,15 @@ compile_and_run prayer_settings_pages_test \
     src/ui/islamic_setup_background_asset.cpp \
     src/ui/canvas.cpp src/ui/font.cpp src/ui/prayer_settings_pages.cpp
 
+compile_and_run prayer_status_bar_test \
+    -Isrc/prayer -Isrc/storage -Isrc/ui \
+    test/prayer_status_bar_test.cpp \
+    src/prayer/prayer_time.cpp src/storage/settings_model.cpp \
+    src/ui/arabic_prayer_assets.cpp src/ui/islamic_background_asset.cpp \
+    src/ui/islamic_landscape_background_asset.cpp src/ui/islamic_setup_background_asset.cpp \
+    src/ui/canvas.cpp src/ui/font.cpp src/ui/prayer_pages.cpp \
+    src/ui/battery_status_render.cpp src/ui/battery_status_overlay_theme.cpp src/ui/sleep_indicator.cpp
+
 compile_and_run sleep_indicator_test \
     -Isrc/ui \
     test/sleep_indicator_test.cpp \
@@ -190,4 +199,4 @@ compile_and_run location_catalog_test \
     test/location_catalog_test.cpp \
     src/location/location_catalog.cpp
 
-echo "[host-test] PASS ${passed_count}/28"
+echo "[host-test] PASS ${passed_count}/29"

@@ -7,7 +7,15 @@
 #include "canvas.h"
 
 void prayer_page_format_time(uint16_t minutes, char *output, size_t capacity);
-bool prayer_page_settings_action_at(int x, int y, int width, int height);
+enum class PrayerHeaderAction : uint8_t {
+    None,
+    Settings,
+    Location,
+};
+
+// Maps logical header coordinates to a native settings destination.
+// 将顶部逻辑坐标映射为设备原生设置入口。
+PrayerHeaderAction prayer_page_header_action_at(int x, int y, int width, int height);
 #include "prayer_time.h"
 #include "settings_model.h"
 

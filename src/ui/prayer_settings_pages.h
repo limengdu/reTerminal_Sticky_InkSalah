@@ -84,6 +84,10 @@ DeviceSettingsAction prayer_settings_action_at(DeviceSettingsPage page,
 // 返回设置内一次返回操作对应的上一级页面。
 DeviceSettingsPage prayer_settings_parent_page(DeviceSettingsPage page);
 
+// Selects the homepage for setup or the requested daily-use shortcut.
+// 为首次设置选择主页，为日常使用选择指定的快捷入口。
+DeviceSettingsPage prayer_settings_entry_page(bool first_time, DeviceSettingsPage requested);
+
 // Draws one complete native settings page into the caller-owned canvas.
 // 将一张完整的设备原生设置页绘制到调用方画布。
 void prayer_settings_render(Canvas &canvas,

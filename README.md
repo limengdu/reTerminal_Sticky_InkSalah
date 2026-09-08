@@ -49,7 +49,7 @@ InkSalah turns the Seeed Studio reTerminal Sticky into a calm, always-visible Sa
 
 The screenshots above are rendered by the same canvas and page code used by the firmware. They are not separate design mockups.
 
-The prayer header groups battery status on the left, location in the center, and the calculation method with a settings shortcut on the right. A crescent appears beside the battery during deep sleep. Wide method names use the available space for the institution name, and long labels are shortened visually while the full setting remains saved.
+The prayer header groups battery status on the left, location in the center, and the calculation method with a settings shortcut on the right. Icons and text share one horizontal centerline. A crescent appears beside the battery during deep sleep. Tap the location icon or city name to open Location directly; the gear opens the settings homepage. Both shortcuts have expanded touch areas around their artwork. Wide method names use the available space for the institution name, and long labels are shortened visually while the full setting remains saved.
 
 ## Hardware target
 
@@ -122,6 +122,7 @@ The IP-based location result is an estimate. Confirm the coordinates and UTC off
 | --- | --- |
 | Swipe up from the bottom of the prayer screen | Open native settings |
 | Tap the gear on the prayer screen | Open native settings |
+| Tap the location icon or city name | Open native Location settings directly |
 | Swipe down from the top of settings | Validate, save, and return to the prayer screen |
 | Swipe right from the left edge inside a settings subpage | Return one level while keeping the draft |
 | Rotate the device | Switch between portrait and landscape after orientation settles |
@@ -191,7 +192,7 @@ bash tools/run_host_tests.sh
 Expected result:
 
 ```text
-[host-test] PASS 28/28
+[host-test] PASS 29/29
 ```
 
 Build both firmware profiles before submitting a change:

@@ -1,6 +1,8 @@
 #include "font.h"
 
+#include <algorithm>
 #include <cstdlib>
+#include <limits>
 
 namespace {
 #include "roboto_font_data.inc"
@@ -64,4 +66,26 @@ int font_text_width(const char *text, uint8_t size, bool bold)
     int width = 0;
     while (*text != '\0') width += font_glyph(face, font_next_codepoint(text)).advance;
     return width;
+}
+
+int font_text_centered_y(const char *text, uint8_t size, int center_y, bool bold)
+{
+    if (text == nullptr) return center_y;
+    const FontFace &face = font_face(size, bold);
+    int top = std::numeric_limits<int>::max();
+    int bottom = std::numeric_limits<int>::min();
+    while (*text != '\0') {
+        const FontGlyph &glyph = font_glyph(face, font_next_codepoint(text));
+        const uint8_t *pixels = font_pixels(glyph);
+        const int stride = (glyph.width + 7) / 8;
+        for (int row = 0; row < glyph.height; ++row) {
+            for (int byte = 0; byte < stride; ++byte) {
+                if (pixels[row * stride + byte] == 0) continue;
+                top = std::min(top, glyph.top + row);
+                bottom = std::max(bottom, glyph.top + row);
+                break;
+            }
+        }
+    }
+    return bottom < top ? center_y : center_y - (bottom - top + 1) / 2 - top;
 }

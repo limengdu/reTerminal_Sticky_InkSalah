@@ -327,6 +327,12 @@ DeviceSettingsAction prayer_settings_action_at(DeviceSettingsPage page, int x, i
     return {};
 }
 
+DeviceSettingsPage prayer_settings_entry_page(bool first_time, DeviceSettingsPage requested)
+{
+    return !first_time && requested == DeviceSettingsPage::Location
+               ? DeviceSettingsPage::Location : DeviceSettingsPage::Main;
+}
+
 DeviceSettingsPage prayer_settings_parent_page(DeviceSettingsPage page)
 {
     switch (page) {

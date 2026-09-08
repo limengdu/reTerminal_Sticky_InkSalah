@@ -22,6 +22,13 @@ size_t black_pixels(const Canvas &canvas)
 
 int main()
 {
+    assert(prayer_settings_entry_page(false, DeviceSettingsPage::Location) == DeviceSettingsPage::Location);
+    for (auto requested : {DeviceSettingsPage::Main, DeviceSettingsPage::Location,
+                           DeviceSettingsPage::LatitudeEditor, DeviceSettingsPage::MethodList}) {
+        assert(prayer_settings_entry_page(true, requested) == DeviceSettingsPage::Main);
+        if (requested != DeviceSettingsPage::Location)
+            assert(prayer_settings_entry_page(false, requested) == DeviceSettingsPage::Main);
+    }
     assert(prayer_settings_action_at(DeviceSettingsPage::Main, 240, 260).type == DeviceSettingsActionType::OpenLocation);
     assert(prayer_settings_action_at(DeviceSettingsPage::Main, 240, 630).type == DeviceSettingsActionType::OpenWifi);
     assert(prayer_settings_action_at(DeviceSettingsPage::Adjustments, 240, 654).type == DeviceSettingsActionType::ToggleQiyamDisplay);

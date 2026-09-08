@@ -4,6 +4,8 @@
 #include <cstring>
 
 #include "arabic_prayer_assets.h"
+#include "font.h"
+#include "status_bar_layout.h"
 #include "ui_style.h"
 
 namespace {
@@ -39,23 +41,25 @@ void date_header(Canvas &canvas, const PrayerPageModel &model, bool portrait)
 {
     const int center = canvas.width() / 2;
     const int city_center = center;
-    const int city_width = portrait ? 132 : 300;
+    const auto location_area = prayer_location_area(canvas.width(), canvas.height());
+    const int city_width = location_area.width;
     char location[100] = {};
-    const int status_y = 26;
     const auto pin = inksalah_location_asset();
     ui::fit(model.settings->city, location, sizeof(location), city_width - pin.width - 6,
               20, TextWeight::Bold);
     const int location_width = Canvas::text_width(location, 20, TextWeight::Bold);
     const int location_left = city_center - (location_width + pin.width + 6) / 2;
-    ui::bitmap(canvas, location_left, status_y, pin, GrayLevel::White);
+    ui::bitmap(canvas, location_left, prayer_status_bitmap_y(pin), pin, GrayLevel::White);
     ui::centered(canvas, location_left + pin.width + 6 + location_width / 2,
-                  status_y, location, 20, TextWeight::Bold, GrayLevel::White);
+                  font_text_centered_y(location, 20, kPrayerStatusCenterY, true),
+                  location, 20, TextWeight::Bold, GrayLevel::White);
     char method[48] = {};
     std::snprintf(method, sizeof(method), "Method: %s",
                   settings_method_short_name(model.settings->calculation_method));
-    const int method_right = canvas.width() - 24;
+    const auto method_area = prayer_method_area(canvas.width(), canvas.height());
+    const int method_right = method_area.x + method_area.width;
     const auto gear = inksalah_status_gear_asset();
-    const int method_width = portrait ? 146 : 210;
+    const int method_width = method_area.width;
     const int text_width = method_width - gear.width - 5;
     if (Canvas::text_width(method, 20, TextWeight::Bold) > text_width)
         std::snprintf(method, sizeof(method), "%s",
@@ -64,8 +68,9 @@ void date_header(Canvas &canvas, const PrayerPageModel &model, bool portrait)
     ui::fit(method, fitted_method, sizeof(fitted_method), text_width, 20, TextWeight::Bold);
     const int label_width = Canvas::text_width(fitted_method, 20, TextWeight::Bold);
     const int method_left = method_right - label_width - 5 - gear.width;
-    ui::bitmap(canvas, method_left, status_y, gear, GrayLevel::White);
-    ui::centered(canvas, method_right - label_width / 2, status_y, fitted_method,
+    ui::bitmap(canvas, method_left, prayer_status_bitmap_y(gear), gear, GrayLevel::White);
+    ui::centered(canvas, method_right - label_width / 2,
+                  font_text_centered_y(fitted_method, 20, kPrayerStatusCenterY, true), fitted_method,
                   20, TextWeight::Bold, GrayLevel::White);
     char date[80] = {};
     const unsigned month = model.today->date.month;
@@ -215,10 +220,12 @@ void prayer_page_format_time(uint16_t minutes, char *output, size_t capacity)
     std::snprintf(output, capacity, "%s %s", time, period);
 }
 
-bool prayer_page_settings_action_at(int x, int y, int width, int height)
+PrayerHeaderAction prayer_page_header_action_at(int x, int y, int width, int height)
 {
-    const int left = width < height ? 304 : 560;
-    return x >= left && x < width - 16 && y >= 16 && y < 62;
+    if (x < 0 || y < 0 || x >= width || y >= height) return PrayerHeaderAction::None;
+    if (prayer_location_touch_area(width, height).contains(x, y)) return PrayerHeaderAction::Location;
+    if (prayer_settings_touch_area(width, height).contains(x, y)) return PrayerHeaderAction::Settings;
+    return PrayerHeaderAction::None;
 }
 
 void prayer_page_render_schedule(Canvas &canvas, const PrayerPageModel &model)

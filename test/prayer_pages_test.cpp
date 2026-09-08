@@ -81,10 +81,12 @@ int main()
         model.window.between_prayers = true;
         prayer_page_render_schedule(canvas, model);
         model.window.between_prayers = false;
-        assert(prayer_page_settings_action_at(canvas.width() - 40, 55, canvas.width(), canvas.height()));
-        assert(!prayer_page_settings_action_at(100, 100, canvas.width(), canvas.height()));
-        assert(!prayer_page_settings_action_at(canvas.width() / 2, 35,
-                                               canvas.width(), canvas.height()));
+        assert(prayer_page_header_action_at(canvas.width() - 40, 55,
+                                             canvas.width(), canvas.height()) == PrayerHeaderAction::Settings);
+        assert(prayer_page_header_action_at(100, 100,
+                                             canvas.width(), canvas.height()) == PrayerHeaderAction::None);
+        assert(prayer_page_header_action_at(canvas.width() / 2, 35,
+                                             canvas.width(), canvas.height()) == PrayerHeaderAction::Location);
         std::strcpy(settings.city, "San Francisco Bay Area");
         const uint8_t methods[] = {0U, 13U, 15U, kCalculationMethodCustomAngles};
         for (uint8_t method : methods) {
