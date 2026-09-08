@@ -54,6 +54,11 @@ compile_and_run() {
 
 check_http_header_capacity
 
+compile_and_run canvas_round_rect_test \
+    -Isrc/ui \
+    test/canvas_round_rect_test.cpp \
+    src/ui/canvas.cpp src/ui/font.cpp
+
 echo "[host-test] setup_portal_page_test"
 python3 test/setup_portal_page_test.py
 passed_count=$((passed_count + 1))
@@ -199,4 +204,4 @@ compile_and_run location_catalog_test \
     test/location_catalog_test.cpp \
     src/location/location_catalog.cpp
 
-echo "[host-test] PASS ${passed_count}/29"
+echo "[host-test] PASS ${passed_count}/30"

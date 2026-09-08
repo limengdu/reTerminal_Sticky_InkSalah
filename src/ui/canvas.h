@@ -74,6 +74,9 @@ public:
     static int text_width(const char *text, uint8_t size,
                           TextWeight weight = TextWeight::Regular);
     static uint8_t text_size(uint8_t scale);
+
+    // Fills or outlines one rounded shape inside the requested width and height.
+    // 在指定宽高内填充或描边同一圆角轮廓。
     void fill_round_rect(int x, int y, int width, int height, int radius,
                          GrayLevel color);
     void draw_round_rect(int x, int y, int width, int height, int radius,

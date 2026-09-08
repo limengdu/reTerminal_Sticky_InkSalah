@@ -6,6 +6,34 @@
 
 #include "font.h"
 
+namespace {
+
+// Emits mirrored row insets using pixel-center distances from each rounded corner.
+// 按像素中心到圆角圆心的距离，生成上下对称的逐行缩进。
+template <typename DrawRow>
+void rounded_rect_rows(int width, int height, int radius, DrawRow draw_row)
+{
+    if (width <= 0 || height <= 0) return;
+    radius = std::clamp(radius, 0, std::min(width, height) / 2);
+    const int64_t diameter_squared = 4LL * radius * radius;
+    int inset = radius;
+    int previous_inset = radius;
+    for (int row = 0; row < height / 2 + height % 2; ++row) {
+        const int64_t dy = std::max<int64_t>(0, 2LL * radius - 2LL * row - 1);
+        while (inset > 0) {
+            const int64_t dx = 2LL * (radius - inset) + 1;
+            if (dx * dx + dy * dy > diameter_squared) break;
+            --inset;
+        }
+        draw_row(row, inset, previous_inset);
+        const int opposite_row = height - 1 - row;
+        if (opposite_row != row) draw_row(opposite_row, inset, previous_inset);
+        previous_inset = inset;
+    }
+}
+
+}  // namespace
+
 Canvas::Canvas(uint16_t width, uint16_t height, uint8_t *buffer, size_t buffer_size)
     : physical_width_(width),
       physical_height_(height),
@@ -279,41 +307,25 @@ void Canvas::draw_text_sized(int x, int y, const char *text, uint8_t size,
 void Canvas::fill_round_rect(int x, int y, int width, int height, int radius,
                              GrayLevel color)
 {
-    radius = std::max(0, std::min(radius, std::min(width, height) / 2));
-    fill_rect(x + radius, y, width - radius * 2, height, color);
-    fill_rect(x, y + radius, width, height - radius * 2, color);
-    fill_circle(x + radius, y + radius, radius, color);
-    fill_circle(x + width - radius - 1, y + radius, radius, color);
-    fill_circle(x + radius, y + height - radius - 1, radius, color);
-    fill_circle(x + width - radius - 1, y + height - radius - 1, radius, color);
+    rounded_rect_rows(width, height, radius, [&](int row, int inset, int) {
+        fill_rect(x + inset, y + row, width - 2 * inset, 1, color);
+    });
 }
 
 void Canvas::draw_round_rect(int x, int y, int width, int height, int radius,
                              GrayLevel color)
 {
-    radius = std::max(0, std::min(radius, std::min(width, height) / 2));
-    draw_line(x + radius, y, x + width - radius - 1, y, color);
-    draw_line(x + radius, y + height - 1, x + width - radius - 1, y + height - 1, color);
-    draw_line(x, y + radius, x, y + height - radius - 1, color);
-    draw_line(x + width - 1, y + radius, x + width - 1, y + height - radius - 1, color);
-    int cx = radius;
-    int cy = 0;
-    int error = 1 - radius;
-    while (cx >= cy) {
-        const int left = x + radius, right = x + width - radius - 1;
-        const int top = y + radius, bottom = y + height - radius - 1;
-        draw_pixel(left - cx, top - cy, color);
-        draw_pixel(left - cy, top - cx, color);
-        draw_pixel(right + cx, top - cy, color);
-        draw_pixel(right + cy, top - cx, color);
-        draw_pixel(left - cx, bottom + cy, color);
-        draw_pixel(left - cy, bottom + cx, color);
-        draw_pixel(right + cx, bottom + cy, color);
-        draw_pixel(right + cy, bottom + cx, color);
-        ++cy;
-        if (error < 0) error += 2 * cy + 1;
-        else { --cx; error += 2 * (cy - cx + 1); }
-    }
+    // Traces the filled contour, including horizontal steps between adjacent rows.
+    // 沿填充区域的轮廓描边，并覆盖相邻行之间的水平阶梯。
+    rounded_rect_rows(width, height, radius, [&](int row, int inset, int previous_inset) {
+        if (row == 0 || row == height - 1) {
+            fill_rect(x + inset, y + row, width - 2 * inset, 1, color);
+            return;
+        }
+        const int edge_width = std::max(1, previous_inset - inset);
+        fill_rect(x + inset, y + row, edge_width, 1, color);
+        fill_rect(x + width - inset - edge_width, y + row, edge_width, 1, color);
+    });
 }
 
 void Canvas::physical_to_logical(int physical_x,

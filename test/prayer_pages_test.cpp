@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cassert>
 #include <cstring>
 #include <vector>
@@ -7,6 +8,38 @@
 #include "font.h"
 #include "prayer_pages.h"
 #include "ui_style.h"
+
+namespace {
+
+bool inside_capsule(int x, int y, int width, int height)
+{
+    if (x < 0 || y < 0 || x >= width || y >= height) return false;
+    const int radius = height / 2;
+    const int dx = std::max(0, 2 * radius - 1 - 2 * std::min(x, width - 1 - x));
+    const int dy = std::max(0, 2 * radius - 1 - 2 * std::min(y, height - 1 - y));
+    return dx * dx + dy * dy <= 4 * radius * radius;
+}
+
+// Checks every border pixel while leaving the countdown text and icon unrestricted.
+// 检查边框的每个像素，内部倒计时文字和图标保持独立。
+void check_countdown_border(const Canvas &canvas)
+{
+    const bool portrait = canvas.width() < canvas.height();
+    const int width = portrait ? 268 : 288;
+    const int height = portrait ? 50 : 52;
+    const int left = (portrait ? 240 : 208) - width / 2;
+    const int top = portrait ? 388 : 366;
+    for (int y = -1; y <= height; ++y) {
+        for (int x = -1; x <= width; ++x) {
+            if (inside_capsule(x - 2, y - 2, width - 4, height - 4)) continue;
+            const auto expected = inside_capsule(x, y, width, height)
+                                      ? GrayLevel::Black : GrayLevel::White;
+            assert(canvas.pixel_at(left + x, top + y) == expected);
+        }
+    }
+}
+
+}  // namespace
 
 int main()
 {
@@ -71,15 +104,18 @@ int main()
         canvas.set_rotation(rotation);
         settings.qiyam_visible = false;
         prayer_page_render_schedule(canvas, model);
+        check_countdown_border(canvas);
         assert(canvas.prayer_header());
         assert(canvas.pixel_at(0, 30) == GrayLevel::Black);
         assert(canvas.pixel_at(canvas.width() / 2, 185) == GrayLevel::Black);
         const std::vector<uint8_t> six = storage;
         settings.qiyam_visible = true;
         prayer_page_render_schedule(canvas, model);
+        check_countdown_border(canvas);
         assert(storage != six);
         model.window.between_prayers = true;
         prayer_page_render_schedule(canvas, model);
+        check_countdown_border(canvas);
         model.window.between_prayers = false;
         assert(prayer_page_header_action_at(canvas.width() - 40, 55,
                                              canvas.width(), canvas.height()) == PrayerHeaderAction::Settings);

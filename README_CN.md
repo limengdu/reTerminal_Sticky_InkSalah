@@ -191,7 +191,7 @@ bash tools/run_host_tests.sh
 成功标志：
 
 ```text
-[host-test] PASS 29/29
+[host-test] PASS 30/30
 ```
 
 提交改动前构建两套固件：

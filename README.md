@@ -192,7 +192,7 @@ bash tools/run_host_tests.sh
 Expected result:
 
 ```text
-[host-test] PASS 29/29
+[host-test] PASS 30/30
 ```
 
 Build both firmware profiles before submitting a change:

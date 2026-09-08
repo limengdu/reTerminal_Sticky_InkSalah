@@ -11,6 +11,7 @@ Date: 2026-09-08
 - Full-view comparisons: [portrait](docs/images/ui-review/portrait-comparison.png), [landscape](docs/images/ui-review/landscape-comparison.png).
 - Focused status-header comparisons: [portrait](docs/images/ui-review/portrait-header-comparison.png), [landscape](docs/images/ui-review/landscape-header-comparison.png).
 - Header alignment: [portrait and landscape status bars](docs/images/ui-review/status-bar-alignment.png).
+- Rounded-control details: [native controls at four-times integer magnification](docs/images/ui-review/rounded-controls.png).
 
 The implementation is the native firmware renderer at one framebuffer pixel per image pixel. CSS viewport and browser density are not applicable. Reference copies are normalized to the display dimensions for comparison; production artwork uses a uniform scale. Detail crops use uniform nearest-neighbor enlargement.
 
@@ -22,6 +23,7 @@ The matched state is Istanbul, DIB, 4 September 2026, Dhuhr from 01:04 PM to 04:
 - Status alignment: occupied glyph and bitmap rows share the y=38 axis in both orientations. Whole-pixel positioning places odd- and even-height shapes within half a pixel of the axis. Location and settings shortcuts use adjacent 60-pixel-high touch areas around the existing artwork.
 - Spacing: city groups and dates are centered. Battery, crescent, location, and method have separate bounds. The landscape composition uses two arches; both orientations group the current prayer, time range, countdown, and list in the reference order. English and Arabic row labels share a right edge beside the time badges.
 - Colors: the background and time capsules use black; the arches and reversed text use white. Secondary captions use the existing dark-gray token. Monochrome packing produces native-pixel edges rather than the reference image's antialiasing.
+- Rounded contours: filled controls and outlines use the same pixel-center geometry. Capsule heights are exactly 50 pixels in portrait, 54 pixels in landscape, and 66 pixels for the settings save action. Mirrored rows keep both ends symmetric within the requested bounds. Countdown capsules have a continuous two-pixel border formed by the outer shape and its inset interior.
 - Artwork: the arches and gear reuse the PDF source. Location and clock icons are direct reference crops. The existing battery and crescent painters retain dynamic charging, charge-level, and sleep-state rendering.
 - Copy: Current Prayer, Next in, Method, prayer names, dates, and AM/PM labels follow the reference presentation. Dynamic values come from the page model. Between-prayer and cross-midnight states retain their own runtime values. Long institutional names receive priority over the Method prefix, with visual ellipsis where required.
 
@@ -33,7 +35,7 @@ The matched state is Istanbul, DIB, 4 September 2026, Dhuhr from 01:04 PM to 04:
 
 ## Functional verification
 
-- Host suite: 29/29 passed.
+- Host suite: 30/30 passed.
 - Release and Debug firmware builds: passed.
 - AddressSanitizer and UndefinedBehaviorSanitizer checks: page rendering and status rendering passed.
 - Portrait and landscape with Qiyam on/off: rendered and visually checked.
@@ -43,8 +45,8 @@ The matched state is Istanbul, DIB, 4 September 2026, Dhuhr from 01:04 PM to 04:
 - Battery updates and clearing preserve the neighboring sleep crescent.
 - Gear and city targets have distinct boundaries in all four rotations. The city shortcut selects Location; the gear selects the settings homepage. First-time entry selects the homepage, and Location retains its existing parent and save actions.
 - Status-bar pixel tests cover city length, accented glyphs, multiple calculation labels, charge values, and padded icon bitmaps.
-- Prayer content below the status bar matches the prior rendering in both orientations.
-- Wi-Fi setup and settings-home screenshots match their prior versions pixel-for-pixel.
+- Rounded-rectangle tests cover four rotations, grayscale colors, odd and even dimensions, small and empty shapes, radius limits, clipping, and fill/outline agreement.
+- Prayer status bars match the preceding rendering pixel-for-pixel. Rounded controls retain their positions, text, and touch bounds; the screenshots use the current native contour renderer.
 
 ## Device verification
 

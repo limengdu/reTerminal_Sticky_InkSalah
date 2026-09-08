@@ -38,7 +38,7 @@ bash tools/run_host_tests.sh
 Expected result:
 
 ```text
-[host-test] PASS 29/29
+[host-test] PASS 30/30
 ```
 
 Coverage includes solar calculations, Hanafi Asr, Qiyam, cross-midnight windows, settings storage policies, touch gestures, Wi-Fi parsing and scan models, captive portal behavior, location policies, screen orientation, retained display contents across orientation wakes, deep-sleep indicators, and UI layout safeguards.
@@ -46,6 +46,10 @@ Coverage includes solar calculations, Hanafi Asr, Qiyam, cross-midnight windows,
 `test/prayer_sleep_display_test.py` compiles the production sleep function and unchanged-orientation branch with host-side board hooks. It checks retained panel pixels, repeated wakes in all four rotations, normal crescent rendering, wake routing, and peripheral error paths. The display driver and electrical wake behavior are verified on hardware.
 
 `test/prayer_status_bar_test.cpp` measures the actual rendered bounds of every header element in all four rotations. It covers short and long city names, accented glyphs, multiple method labels, charge values, icon padding, and shortcut boundaries. Settings-page tests cover direct Location entry, first-time entry, and the Location-to-home back path.
+
+`test/canvas_round_rect_test.cpp` verifies the filled and outlined contours against a pixel-center geometry model. Coverage includes the 50-, 54-, and 66-pixel capsule heights, odd and even dimensions, small controls, radius limits, empty shapes, grayscale colors, screen-edge clipping, and all four rotations. Adding a same-color outline to a filled shape preserves its pixels and bounds.
+
+`test/prayer_pages_test.cpp` also checks the complete two-pixel countdown border in portrait and landscape, including six-row, seven-row, and between-prayer states in all four rotations.
 
 ## Device UI preview
 
@@ -121,7 +125,7 @@ The landscape background places two uniformly scaled copies of the source arch. 
 
 ### UI verification
 
-1. Run the host suite and build both profiles; expect `PASS 29/29` and `SUCCESS`.
+1. Run the host suite and build both profiles; expect `PASS 30/30` and `SUCCESS`.
 2. Render the prayer page in both orientations, with Qiyam on and off. Every time has an AM/PM label; the seventh row remains inside the screen.
 3. Render `settings-main-first-time`: the bottom row contains one Save & Start action. Render `settings-main`: Save & Exit and Discard & Exit are separate actions.
 4. On the device, tap the gear, open each settings category, and test the new button positions. In Minute Adjustments, toggle Show Qiyam and save; confirm the row count changes.
@@ -141,6 +145,14 @@ On a configured device, verify both portrait and landscape prayer pages:
 7. Check battery values 0 and 100, charging and unplugged states, and unavailable readings. The battery and crescent occupy separate areas, and the city and method remain readable after a battery update.
 
 Host previews verify rendering and hit regions. Touch responsiveness, contrast, waveform behavior, and ghosting are verified on the physical display.
+
+### Rounded controls
+
+`Canvas::fill_round_rect` and `Canvas::draw_round_rect` take the top-left position, width, height, radius, and color and draw into the existing canvas buffer. Their shared `rounded_rect_rows` helper produces mirrored row insets from pixel-center distances. Filling paints each complete row; outlining paints the boundary pixels of the same shape. The drawing methods return no value. A radius of zero draws a rectangle, and a radius up to half the shorter side produces rounded corners or a capsule.
+
+The prayer renderer reaches these methods through `time_range` and the countdown border; settings reach them through `button`, `ui::pill`, and cards. The two-pixel countdown border is a black outer capsule with a white inner capsule inset by two pixels, followed by its text and icon. Control positions, text, touch targets, and display refresh policy use their existing definitions.
+
+On the device, open settings and inspect Save & Exit and Discard & Exit, then inspect the prayer time capsule and countdown border in both orientations. The straight edges meet the curves continuously, and the shapes remain within their assigned size. Also check Save & Start during first-time setup, Location controls, and the coordinate keypad. Native [rounded-control details](images/ui-review/rounded-controls.png) show the rendered edges at four-times integer magnification.
 
 ## Captive portal preview
 

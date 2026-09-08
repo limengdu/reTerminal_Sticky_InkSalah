@@ -179,9 +179,10 @@ void hero(Canvas &canvas, const PrayerPageModel &model, bool portrait)
     const int content_width = clock.width + 16 + label_width + 10 +
                               Canvas::text_width(remaining, remaining_size, TextWeight::Bold);
     const int left = center - content_width / 2;
-    canvas.draw_round_rect(center - width / 2, countdown_y, width, height, height / 2);
-    canvas.draw_round_rect(center - width / 2 + 1, countdown_y + 1,
-                           width - 2, height - 2, height / 2 - 1);
+    canvas.fill_round_rect(center - width / 2, countdown_y, width, height, height / 2,
+                           GrayLevel::Black);
+    canvas.fill_round_rect(center - width / 2 + 2, countdown_y + 2,
+                           width - 4, height - 4, height / 2 - 2, GrayLevel::White);
     ui::bitmap(canvas, left, countdown_y + (height - clock.height) / 2, clock);
     canvas.draw_text_sized(left + clock.width + 16, countdown_y + (height - 20) / 2,
                            "Next in", 20, GrayLevel::Black, TextWeight::Bold);
