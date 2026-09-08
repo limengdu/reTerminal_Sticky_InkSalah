@@ -63,7 +63,7 @@ esp_err_t network_location_estimate(NetworkLocationEstimate &estimate)
     ResponseBuffer response = {};
     esp_http_client_config_t config = {};
     config.url = kUrl;
-    config.user_agent = "Sticky-Salah/0.1.0";
+    config.user_agent = "Sticky-Salah/0.1.1";
     config.event_handler = http_event_handler;
     config.user_data = &response;
     config.crt_bundle_attach = esp_crt_bundle_attach;
