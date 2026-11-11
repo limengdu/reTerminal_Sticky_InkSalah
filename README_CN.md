@@ -2,7 +2,13 @@
 
 # InkSalah for reTerminal Sticky
 
-### 一款隐私友好、离线优先的墨水屏礼拜时间固件
+### 新旧 Sticky 屏幕兼容
+
+同一份固件自动支持原版 SSD1677 和新版 SSD2677 屏幕。启动时读取 `0x70` 寄存器：返回 `0x07` 选择 SSD2677；其他成功读回的值走原来的 SSD1677 驱动。SPI 读取失败会明确报错，不会静默回退。串口日志显示原始 ID 和最终选择的控制器。
+
+两种屏幕均接入现有四级灰度界面、黑白局刷、旋转以及休眠唤醒流程。新版硬件批次发布前，请按[屏幕兼容性与实机检查](docs/SCREEN_COMPATIBILITY.md)验证。
+
+## 一款隐私友好、离线优先的墨水屏礼拜时间固件
 
 [English](README.md) · [礼拜时间算法](docs/PRAYER_CALCULATION_CN.md) · [开发指南](docs/DEVELOPMENT.md) · [更新记录](CHANGELOG.md)
 
@@ -233,7 +239,7 @@ bash tools/run_host_tests.sh
 成功标志：
 
 ```text
-[host-test] PASS 30/30
+[host-test] PASS 31/31
 ```
 
 提交改动前构建两套固件：

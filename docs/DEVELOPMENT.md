@@ -38,12 +38,12 @@ bash tools/run_host_tests.sh
 Expected result:
 
 ```text
-[host-test] PASS 30/30
+[host-test] PASS 31/31
 ```
 
 Coverage includes solar calculations, Hanafi Asr, Qiyam, cross-midnight windows, settings storage policies, touch gestures, Wi-Fi parsing and scan models, captive portal behavior, location policies, screen orientation, retained display contents across orientation wakes, deep-sleep indicators, and UI layout safeguards.
 
-`test/prayer_sleep_display_test.py` compiles the production sleep function and unchanged-orientation branch with host-side board hooks. It checks retained panel pixels, repeated wakes in all four rotations, normal crescent rendering, wake routing, and peripheral error paths. The display driver and electrical wake behavior are verified on hardware.
+`test/prayer_sleep_display_test.py` compiles the production sleep function and unchanged-orientation branch with host-side board hooks. It checks retained panel pixels, repeated wakes in all four rotations, normal crescent rendering, wake routing, and peripheral error paths. The display driver is also exercised by `test/epaper_driver_test.c` with mocked SPI/GPIO/RTOS and failure injection. Electrical wake behavior and visual output still require [physical checks on both controller revisions](SCREEN_COMPATIBILITY.md).
 
 `test/prayer_status_bar_test.cpp` measures the actual rendered bounds of every header element in all four rotations. It covers short and long city names, accented glyphs, multiple method labels, charge values, icon padding, and shortcut boundaries. Settings-page tests cover direct Location entry, first-time entry, and the Location-to-home back path.
 
@@ -125,7 +125,7 @@ The landscape background places two uniformly scaled copies of the source arch. 
 
 ### UI verification
 
-1. Run the host suite and build both profiles; expect `PASS 30/30` and `SUCCESS`.
+1. Run the host suite and build both profiles; expect `PASS 31/31` and `SUCCESS`.
 2. Render the prayer page in both orientations, with Qiyam on and off. Every time has an AM/PM label; the seventh row remains inside the screen.
 3. Render `settings-main-first-time`: the bottom row contains one Save & Start action. Render `settings-main`: Save & Exit and Discard & Exit are separate actions.
 4. On the device, tap the gear, open each settings category, and test the new button positions. In Minute Adjustments, toggle Show Qiyam and save; confirm the row count changes.

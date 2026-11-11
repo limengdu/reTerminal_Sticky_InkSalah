@@ -3,7 +3,8 @@
 `SEEED_EPAPER` 是一个面向 ESP-IDF 的模块化墨水屏组件，当前先支持：
 
 - `UC8179`：reTerminal E1001
-- `SSD1677`：reTerminal E1005
+- `SSD1677`：原版 reTerminal Sticky
+- `SSD2677`：新版 reTerminal Sticky（SSD系列在启动时自动探测）
 
 设计目标：
 
@@ -14,7 +15,8 @@
 
 ## 对外 API
 
-- `seeed_epaper_new_panel()`：创建面板句柄
+- `seeed_epaper_new_panel()`：创建面板句柄，SSD系列读取 `0x70` 后以 `0x07` 识别SSD2677，其他成功读值选择SSD1677
+- `seeed_epaper_panel_get_model()`：读取实际选择的控制器
 - `seeed_epaper_panel_prepare()`：准备一次 full / partial 会话
 - `seeed_epaper_panel_write_bitmap()`：写入一块区域到显存
 - `seeed_epaper_panel_commit()`：触发物理刷新
@@ -36,3 +38,7 @@
 - `driver/uc8179.c`：UC8179 控制器实现
 - `driver/ssd1677.c`：SSD1677 控制器实现
 
+
+- `driver/ssd2677.c`：SSD2677控制器，完整2bpp流及温度波形
+
+SSD2677的全刷、局刷和灰度刷新都传输整屏96,000字节。SPI设备需配置半双工并支持寄存器读回；驱动保留应用现有的独立MISO布线和硬件CS。具体限制、内存开销与实机检查见 [SCREEN_COMPATIBILITY.md](../../docs/SCREEN_COMPATIBILITY.md)。

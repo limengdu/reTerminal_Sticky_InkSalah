@@ -21,6 +21,7 @@ typedef struct seeed_epaper_panel_t *seeed_epaper_panel_handle_t;
 typedef enum {
     SEEED_EPAPER_PANEL_UC8179 = 0,
     SEEED_EPAPER_PANEL_SSD1677,
+    SEEED_EPAPER_PANEL_SSD2677,
 } seeed_epaper_panel_model_t;
 
 typedef enum {
@@ -89,6 +90,11 @@ esp_err_t seeed_epaper_panel_del(seeed_epaper_panel_handle_t panel);
 
 esp_err_t seeed_epaper_panel_get_info(seeed_epaper_panel_handle_t panel,
                                       seeed_epaper_panel_info_t *ret_info);
+
+// SSD family requests automatically select SSD2677 for ID 0x07, otherwise SSD1677.
+// SSD系列根据0x70读回的ID自动选择新旧屏；此接口返回实际选中的型号。
+esp_err_t seeed_epaper_panel_get_model(seeed_epaper_panel_handle_t panel,
+                                       seeed_epaper_panel_model_t *ret_model);
 
 esp_err_t seeed_epaper_panel_prepare(seeed_epaper_panel_handle_t panel,
                                      seeed_epaper_refresh_mode_t mode);

@@ -63,6 +63,9 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: inksalah-firmware-${{ github.sha }}
-          path: .pio/build/sticky-salah-release/firmware.bin
+          path: |
+            .pio/build/sticky-salah-release/bootloader.bin
+            .pio/build/sticky-salah-release/partitions.bin
+            .pio/build/sticky-salah-release/firmware.bin
           if-no-files-found: error
           retention-days: 14

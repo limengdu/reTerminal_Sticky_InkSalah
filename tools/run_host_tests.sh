@@ -204,4 +204,8 @@ compile_and_run location_catalog_test \
     test/location_catalog_test.cpp \
     src/location/location_catalog.cpp
 
-echo "[host-test] PASS ${passed_count}/30"
+echo "[host-test] epaper_driver_test"
+bash tools/run_epaper_tests.sh
+passed_count=$((passed_count + 1))
+
+echo "[host-test] PASS ${passed_count}/31"

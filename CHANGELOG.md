@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Detect SSD1677/SSD2677 at boot from register `0x70`, and log the actual controller.
+- Add the SSD2677 OTP initialization, temperature-selected full/partial/grayscale waveforms, complete packed framebuffer transfer, BUSY polarity and sleep sequence.
+- Keep the established SSD1677 command sequence and software mirroring unchanged.
+- Preserve mirrored grayscale/monochrome history and neighboring pixels across partial updates; power down SSD2677 high voltage after each refresh.
+- Add mocked ESP-IDF tests that execute the production panel core and controller drivers. Physical checks on both screen revisions are still required.
+
+## Unreleased
+
 ## 0.1.1 - 2026-09-08
 
 - 圆角按钮与礼拜时间框采用统一的逐行轮廓绘制，填充和描边保持在指定宽高内，倒计时使用连续的两像素边框；增加四方向、奇偶尺寸、颜色及裁剪测试，主机测试扩展为 30 项。

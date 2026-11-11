@@ -98,6 +98,7 @@ esp_err_t sticky_display_init()
     app_log_register_tag(kTag);
     app_log_register_tag("seeed_epaper");
     app_log_register_tag("ssd1677");
+    app_log_register_tag("ssd2677");
 
     if (s_panel != nullptr && s_canvas != nullptr) {
         STICKY_LOGD(kTag, "display=init state=already_ready");
@@ -154,6 +155,9 @@ esp_err_t sticky_display_init()
     device_config.mode = 0;
     device_config.spics_io_num = PIN_EPD_CS;
     device_config.queue_size = 1;
+    // Receive-only ID/temperature transactions require half-duplex SPI.
+    // ID和温度寄存器读取使用独立接收事务，需配置半双工SPI。
+    device_config.flags = SPI_DEVICE_HALFDUPLEX;
     ESP_RETURN_ON_ERROR(spi_bus_add_device(SPI2_HOST, &device_config, &s_spi_device),
                         "sticky_display", "add display to SPI2");
     STICKY_LOGD(kTag,
@@ -175,9 +179,13 @@ esp_err_t sticky_display_init()
     panel_config.mirror_x = true;
     ESP_RETURN_ON_ERROR(
         seeed_epaper_new_panel(SEEED_EPAPER_PANEL_SSD1677, &panel_config, &s_panel),
-        "sticky_display", "create SSD1677 panel");
+        "sticky_display", "create auto-detected Sticky panel");
+    seeed_epaper_panel_model_t model;
+    ESP_RETURN_ON_ERROR(seeed_epaper_panel_get_model(s_panel, &model),
+                        "sticky_display", "get detected panel model");
     STICKY_LOGI(kTag,
-                "display=panel_ready controller=SSD1677 dc=%d rst=%d busy=%d result=ok",
+                "display=panel_ready controller=%s dc=%d rst=%d busy=%d result=ok",
+                model == SEEED_EPAPER_PANEL_SSD2677 ? "SSD2677" : "SSD1677",
                 PIN_EPD_DC,
                 PIN_EPD_RST,
                 PIN_EPD_BUSY);
