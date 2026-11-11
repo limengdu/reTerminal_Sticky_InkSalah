@@ -12,7 +12,8 @@ readonly COMMON_FLAGS=(-std=c++17 -Wall -Wextra -Werror)
 mkdir -p "${BUILD_DIR}"
 cd "${PROJECT_ROOT}"
 
-passed_count=0
+python3 tools/check_firmware_version.py
+passed_count=1
 
 check_http_header_capacity() {
     local minimum_length=4096
@@ -221,4 +222,4 @@ echo "[host-test] gt911_startup_test"
 bash tools/run_gt911_host_test.sh --require-int-sync
 passed_count=$((passed_count + 1))
 
-echo "[host-test] PASS ${passed_count}/34"
+echo "[host-test] PASS ${passed_count}/35"

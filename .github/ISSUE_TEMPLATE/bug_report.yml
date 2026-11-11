@@ -11,7 +11,7 @@ body:
     id: version
     attributes:
       label: Firmware version or commit
-      placeholder: v0.1.1 or 24485d2
+      placeholder: v0.1.2 or a commit hash
     validations:
       required: true
 

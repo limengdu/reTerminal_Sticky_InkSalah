@@ -29,8 +29,9 @@ InkSalah turns the Seeed Studio reTerminal Sticky into a calm, always-visible Sa
 
 > Prayer times shown by this firmware are calculated time-window boundaries. For congregational prayer and local religious guidance, follow the timetable and iqamah schedule published by your mosque or trusted local authority.
 
-## Current version: 0.1.1
+## Current version: 0.1.2
 
+- **Screen and touch compatibility:** automatic SSD1677/SSD2677 detection and synchronized GT911 startup. Runtime logs, the ESP-IDF application descriptor, and the HTTP User-Agent now share version 0.1.2. This version-aligned rebuild requires physical-device acceptance.
 - **A complete device UI:** Roboto typography, connected Arabic labels, AM/PM times, and separate portrait and landscape arch layouts.
 - **Direct header controls:** aligned status icons and text, generous gear and location touch targets, and one-tap access to Location.
 - **Consistent rounded controls:** continuous capsule edges across prayer times, countdowns, and settings buttons.

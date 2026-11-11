@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.1.2 - 2026-11-11
+
+- Align runtime logs, the ESP-IDF application descriptor, and the HTTP User-Agent at 0.1.2; verify version declarations in host tests. This version-aligned rebuild requires its own physical-device acceptance.
 
 - Complete GT911 address selection with a 60 ms INT-low synchronization phase, and require readable, nonzero sensor geometry before marking startup ready.
 - Exercise the production touch driver in host tests, including both I2C addresses, reset synchronization, failed initialization and coordinate reports.
@@ -15,8 +17,6 @@
 - Keep the established SSD1677 command sequence and software mirroring unchanged.
 - Preserve mirrored grayscale/monochrome history and neighboring pixels across partial updates; power down SSD2677 high voltage after each refresh.
 - Add mocked ESP-IDF tests that execute the production panel core and controller drivers. Physical checks on both screen revisions are still required.
-
-## Unreleased
 
 ## 0.1.1 - 2026-09-08
 
