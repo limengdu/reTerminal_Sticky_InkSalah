@@ -2,7 +2,7 @@
 
 Run `./tools/run_epaper_tests.sh` from any directory. Requires a C11 compiler, not ESP-IDF or PlatformIO. `CC` selects the compiler; `EPAPER_TEST_CFLAGS` adds compiler/linker flags.
 
-The runner builds the **actual** shared panel implementation and SSD1677, SSD2677 and UC8179 driver sources. Only ESP-IDF GPIO, SPI, allocation, time and FreeRTOS interfaces are replaced with small host doubles. It creates a temporary executable and removes it on exit.
+The runner builds the **actual** shared panel implementation and SSD1677, SSD2677 and UC8179 driver sources. Only ESP-IDF GPIO, SPI, allocation, time and FreeRTOS interfaces are replaced with small host doubles. It retains the executable in `${TMPDIR:-/tmp}/sticky_salah_epaper_tests` for inspection.
 
 Coverage:
 

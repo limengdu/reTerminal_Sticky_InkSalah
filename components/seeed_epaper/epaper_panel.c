@@ -960,6 +960,11 @@ static esp_err_t resolve_panel_model(seeed_epaper_panel_t *panel)
     ESP_RETURN_ON_ERROR(seeed_epaper_panel_write_command(panel, 0x70), TAG, "probe command failed");
     ESP_RETURN_ON_ERROR(seeed_epaper_panel_read_data(panel, &chip_id), TAG, "probe read failed");
     panel->model = chip_id == 0x07U ? SEEED_EPAPER_PANEL_SSD2677 : SEEED_EPAPER_PANEL_SSD1677;
+    if (chip_id == 0x00U || chip_id == 0xFFU) {
+        ESP_LOGW(TAG,
+                 "panel probe: chip_id=0x%02X legacy fallback; verify SDA readback if panel stays busy",
+                 chip_id);
+    }
     if (panel->model == SEEED_EPAPER_PANEL_SSD2677) {
         panel->config.busy_level = 0U;
         panel->config.busy_timeout_ms = 30000U;

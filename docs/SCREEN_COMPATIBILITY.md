@@ -6,7 +6,9 @@ The application requests the SSD family. `seeed_epaper_new_panel()` resets the p
 
 The serial log includes `panel probe: chip_id=0x07 controller=SSD2677` or the legacy controller name, followed by `display=panel_ready controller=...`. `seeed_epaper_panel_get_model()` returns the actual model. SSD2677 uses active-low BUSY, a 30-second timeout and 20/10 ms reset. SSD1677 keeps active-high BUSY and the application's existing timeout/reset settings. Detection runs once per panel creation, not on every wake.
 
-SPI now uses `SPI_DEVICE_HALFDUPLEX` for receive-only ID and internal-temperature transactions. Existing board pins are unchanged: MOSI 14, MISO 12, CLK 13, CS 15, DC 16, RST 17, BUSY 18, EN 47. Hardware CS remains in use. The supplied component does not include a complete board SPI configuration, so physical readback must be verified on the target panel. No unsupported three-wire wiring assumption is made.
+The display uses `SPI_DEVICE_HALFDUPLEX | SPI_DEVICE_3WIRE | SPI_DEVICE_NO_DUMMY` at 2 MHz for both writes and register reads. GPIO14 is the panel's bidirectional SDA; GPIO12 remains the shared MicroSD return line. CLK 13, CS 15, DC 16, RST 17, BUSY 18 and EN 47 retain their existing assignments, including hardware CS and separate DC. SSD2677 read cycles require at least 400 ns (2.5 MHz maximum). The SD device retains its own clock configuration. A 96,000-byte display transfer takes approximately 384 ms of wire time at 2 MHz.
+
+The board configuration regression test compiles the same SPI configuration helper as the firmware, checking bidirectional data, clock and shared SD pins. The controller tests separately inject read responses. Values `0x00` and `0xFF` preserve the legacy fallback and emit a diagnostic warning.
 
 ## Framebuffer and power behavior
 

@@ -1,4 +1,5 @@
 #include "sticky_display.h"
+#include "sticky_display_spi_config.h"
 
 #include <atomic>
 #include <cstring>
@@ -150,20 +151,14 @@ esp_err_t sticky_display_init()
                 PIN_EPD_MISO,
                 PIN_EPD_CLK);
 
-    spi_device_interface_config_t device_config = {};
-    device_config.clock_speed_hz = 10 * 1000 * 1000;
-    device_config.mode = 0;
-    device_config.spics_io_num = PIN_EPD_CS;
-    device_config.queue_size = 1;
-    // Receive-only ID/temperature transactions require half-duplex SPI.
-    // ID和温度寄存器读取使用独立接收事务，需配置半双工SPI。
-    device_config.flags = SPI_DEVICE_HALFDUPLEX;
+    const spi_device_interface_config_t device_config = sticky_display_spi_device_config();
     ESP_RETURN_ON_ERROR(spi_bus_add_device(SPI2_HOST, &device_config, &s_spi_device),
                         "sticky_display", "add display to SPI2");
-    STICKY_LOGD(kTag,
-                "display=spi_device_ready cs=%d clock_hz=%d mode=0 result=ok",
+    STICKY_LOGI(kTag,
+                "display=spi_device_ready cs=%d clock_hz=%d data_io=%d mode=0 half_duplex=1 result=ok",
                 PIN_EPD_CS,
-                device_config.clock_speed_hz);
+                device_config.clock_speed_hz,
+                PIN_EPD_MOSI);
 
     seeed_epaper_panel_config_t panel_config = {};
     panel_config.spi_handle = s_spi_device;

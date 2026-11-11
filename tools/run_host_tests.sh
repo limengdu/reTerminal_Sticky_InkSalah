@@ -204,8 +204,12 @@ compile_and_run location_catalog_test \
     test/location_catalog_test.cpp \
     src/location/location_catalog.cpp
 
+compile_and_run sticky_display_spi_config_test \
+    -Itest/epaper_stubs -Isrc/board \
+    test/sticky_display_spi_config_test.cpp
+
 echo "[host-test] epaper_driver_test"
 bash tools/run_epaper_tests.sh
 passed_count=$((passed_count + 1))
 
-echo "[host-test] PASS ${passed_count}/31"
+echo "[host-test] PASS ${passed_count}/32"

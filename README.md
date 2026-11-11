@@ -6,6 +6,8 @@
 
 The same firmware automatically supports the original SSD1677 and revised SSD2677 screens. At boot it reads register `0x70`: `0x07` selects SSD2677; any other successful response selects the legacy SSD1677 path. A SPI read error fails initialization rather than silently falling back. The detected controller and raw ID are printed to the serial log.
 
+Display reads and writes share GPIO14 at 2 MHz; GPIO12 remains the shared MicroSD return line.
+
 Both controllers support the existing four-level grayscale UI, monochrome partial transitions, rotation, and sleep/wake. See [screen compatibility and hardware checks](docs/SCREEN_COMPATIBILITY.md) before publishing firmware for a new hardware batch.
 
 ## A private, offline-first prayer-time display built for ePaper

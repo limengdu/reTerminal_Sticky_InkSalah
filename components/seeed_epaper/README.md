@@ -41,4 +41,4 @@
 
 - `driver/ssd2677.c`：SSD2677控制器，完整2bpp流及温度波形
 
-SSD2677的全刷、局刷和灰度刷新都传输整屏96,000字节。SPI设备需配置半双工并支持寄存器读回；驱动保留应用现有的独立MISO布线和硬件CS。具体限制、内存开销与实机检查见 [SCREEN_COMPATIBILITY.md](../../docs/SCREEN_COMPATIBILITY.md)。
+SSD2677的全刷、局刷和灰度刷新都传输整屏96,000字节。SPI设备配置 `HALFDUPLEX | 3WIRE | NO_DUMMY`，通过 GPIO14 以 2 MHz 双向读写，保留硬件CS与独立DC。GPIO12用于共享总线上的MicroSD返回数据。具体限制、内存开销与实机检查见 [SCREEN_COMPATIBILITY.md](../../docs/SCREEN_COMPATIBILITY.md)。

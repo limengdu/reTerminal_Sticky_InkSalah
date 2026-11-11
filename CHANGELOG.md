@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Read panel IDs and temperature through bidirectional GPIO14 at 2 MHz, with a production SPI configuration regression test.
+
 - Detect SSD1677/SSD2677 at boot from register `0x70`, and log the actual controller.
 - Add the SSD2677 OTP initialization, temperature-selected full/partial/grayscale waveforms, complete packed framebuffer transfer, BUSY polarity and sleep sequence.
 - Keep the established SSD1677 command sequence and software mirroring unchanged.
