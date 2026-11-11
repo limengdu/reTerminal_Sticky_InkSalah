@@ -17,6 +17,24 @@ def main() -> None:
         encoding="utf-8"
     )
 
+    app_entry = app_source.index("void prayer_app_run(Canvas &canvas)")
+    cold_boot = app_source[app_entry:app_source.index("SalahSettings settings = {};", app_entry)]
+    require(
+        "esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_UNDEFINED" in cold_boot
+        and "sticky_touch_init()" in cold_boot,
+        "Cold boot must prepare touch input before Wi-Fi setup.",
+    )
+    require(
+        '"TOUCH UNAVAILABLE"' in cold_boot
+        and "enter_deep_sleep(canvas, kErrorRetryUs);" in cold_boot,
+        "Early touch failure must retain the visible error and timed retry path.",
+    )
+    require(
+        "esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_EXT0 &&\n"
+        "        sticky_touch_init() == ESP_OK" in app_source,
+        "Touch gesture wake must retain its original input initialization path.",
+    )
+
     require(
         "kIdleTimeout" not in settings_source,
         "Native settings must not expire while the user is reading or editing.",

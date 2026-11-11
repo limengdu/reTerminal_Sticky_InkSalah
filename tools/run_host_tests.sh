@@ -208,8 +208,13 @@ compile_and_run sticky_display_spi_config_test \
     -Itest/epaper_stubs -Isrc/board \
     test/sticky_display_spi_config_test.cpp
 
+compile_and_run sticky_touch_startup_test \
+    -Isrc/input \
+    test/sticky_touch_startup_test.cpp \
+    src/input/sticky_touch_recovery_policy.cpp
+
 echo "[host-test] epaper_driver_test"
 bash tools/run_epaper_tests.sh
 passed_count=$((passed_count + 1))
 
-echo "[host-test] PASS ${passed_count}/32"
+echo "[host-test] PASS ${passed_count}/33"

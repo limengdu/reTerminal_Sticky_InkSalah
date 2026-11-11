@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Initialize cold-boot touch input before Wi-Fi setup and retry unexpected controller geometry with a bounded reset sequence.
+- Cover normal, invalid-geometry, failed-start and retry-limit touch startup states with host regression tests.
+
 - Read panel IDs and temperature through bidirectional GPIO14 at 2 MHz, with a production SPI configuration regression test.
 
 - Detect SSD1677/SSD2677 at boot from register `0x70`, and log the actual controller.

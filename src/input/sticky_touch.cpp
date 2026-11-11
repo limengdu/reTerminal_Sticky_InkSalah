@@ -66,21 +66,39 @@ bool time_reached(uint32_t now_ms, uint32_t target_ms)
 // 使用Sticky示例相同的复位和地址选择流程启动GT911。
 bool start_touch_controller(const char *reason)
 {
-    if (!s_controller.begin(PIN_TOUCH_INT,
-                            PIN_TOUCH_RST,
-                            kDisplayWidth,
-                            kDisplayHeight,
-                            s_touch_bus)) {
-        STICKY_LOGW(kTag,
-                    "touch=controller_start reason=%s result=failed",
-                    reason);
-        return false;
-    }
-
     uint16_t reported_width = 0U;
     uint16_t reported_height = 0U;
-    const bool resolution_read =
-        s_controller.readResolution(reported_width, reported_height);
+    bool resolution_read = false;
+    uint32_t attempt = 1U;
+    for (; attempt <= kStickyTouchStartupAttempts; ++attempt) {
+        const bool started = s_controller.begin(PIN_TOUCH_INT,
+                                                 PIN_TOUCH_RST,
+                                                 kDisplayWidth,
+                                                 kDisplayHeight,
+                                                 s_touch_bus);
+        reported_width = 0U;
+        reported_height = 0U;
+        resolution_read = started &&
+            s_controller.readResolution(reported_width, reported_height);
+        if (sticky_touch_startup_retry_required(started, resolution_read,
+                                                reported_width, reported_height,
+                                                attempt)) {
+            STICKY_LOGW(kTag,
+                        "touch=controller_start reason=%s attempt=%u reported_width=%u reported_height=%u result=retry",
+                        reason, static_cast<unsigned>(attempt),
+                        static_cast<unsigned>(reported_width),
+                        static_cast<unsigned>(reported_height));
+            vTaskDelay(pdMS_TO_TICKS(20));
+            continue;
+        }
+        if (!started) {
+            STICKY_LOGW(kTag,
+                        "touch=controller_start reason=%s attempt=%u result=failed",
+                        reason, static_cast<unsigned>(attempt));
+            return false;
+        }
+        break;
+    }
     const StickyTouchSensorResolution resolution =
         sticky_touch_select_sensor_resolution(
             resolution_read, reported_width, reported_height);
@@ -94,14 +112,15 @@ bool start_touch_controller(const char *reason)
     s_next_recovery_attempt_ms = 0U;
 
     STICKY_LOGI(kTag,
-                "touch=controller_ready reason=%s address=0x%02X reported_width=%u reported_height=%u map_width=%u map_height=%u fallback=%u result=ok",
+                "touch=controller_ready reason=%s address=0x%02X reported_width=%u reported_height=%u map_width=%u map_height=%u fallback=%u attempt=%u result=ok",
                 reason,
                 s_controller.address(),
                 static_cast<unsigned>(reported_width),
                 static_cast<unsigned>(reported_height),
                 static_cast<unsigned>(resolution.width),
                 static_cast<unsigned>(resolution.height),
-                static_cast<unsigned>(resolution.used_fallback));
+                static_cast<unsigned>(resolution.used_fallback),
+                static_cast<unsigned>(attempt));
     return true;
 }
 

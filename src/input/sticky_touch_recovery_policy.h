@@ -6,6 +6,7 @@ constexpr uint16_t kStickyTouchSensorWidth = 480U;
 constexpr uint16_t kStickyTouchSensorHeight = 800U;
 constexpr uint32_t kStickyTouchReadFailureThreshold = 5U;
 constexpr uint32_t kStickyTouchMaximumContactMs = 10000U;
+constexpr uint32_t kStickyTouchStartupAttempts = 3U;
 
 struct StickyTouchSensorResolution {
     uint16_t width;
@@ -27,3 +28,11 @@ bool sticky_touch_recovery_required(uint32_t consecutive_failures);
 // Reports when one contact has remained active beyond normal UI interaction.
 // 判断一次触摸是否已持续超过正常界面交互时间。
 bool sticky_touch_contact_stuck(uint32_t started_at_ms, uint32_t now_ms);
+
+// Bounds reset retries for an incomplete sensor startup.
+// 限制触摸控制器启动状态异常时的复位重试次数。
+bool sticky_touch_startup_retry_required(bool started,
+                                         bool resolution_read,
+                                         uint16_t reported_width,
+                                         uint16_t reported_height,
+                                         uint32_t attempt);

@@ -25,3 +25,15 @@ bool sticky_touch_contact_stuck(uint32_t started_at_ms, uint32_t now_ms)
 {
     return now_ms - started_at_ms >= kStickyTouchMaximumContactMs;
 }
+
+bool sticky_touch_startup_retry_required(bool started,
+                                         bool resolution_read,
+                                         uint16_t reported_width,
+                                         uint16_t reported_height,
+                                         uint32_t attempt)
+{
+    const bool ready = started &&
+        !sticky_touch_select_sensor_resolution(
+            resolution_read, reported_width, reported_height).used_fallback;
+    return !ready && attempt < kStickyTouchStartupAttempts;
+}

@@ -538,6 +538,13 @@ uint64_t sleep_interval_us(const PrayerNext &next,
     app_log_register_tag(kTag);
     if (esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_UNDEFINED) {
         s_last_rotation = static_cast<uint8_t>(salah_default_rotation());
+        // Cold starts prepare input before the interactive network setup.
+        // 冷启动先准备触摸输入，再进入交互式网络设置。
+        if (sticky_touch_init() != ESP_OK) {
+            prayer_page_render_error(canvas, "TOUCH UNAVAILABLE", "RETRYING SOON");
+            sticky_display_refresh_monochrome();
+            enter_deep_sleep(canvas, kErrorRetryUs);
+        }
     }
     SalahSettings settings = {};
     if (settings_store_load(settings) != ESP_OK) {
