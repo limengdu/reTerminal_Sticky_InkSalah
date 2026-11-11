@@ -20,6 +20,7 @@ constexpr uint32_t kPostResetSettleMs = 30;
 constexpr uint32_t kResetHoldLowMs = 20;
 constexpr uint32_t kResetReleaseHighMs = 20;
 constexpr uint32_t kResetAddressSettleMs = 80;
+constexpr uint32_t kResetIntSyncMs = 60;
 constexpr uint32_t kResetRetryDelayMs = 20;
 constexpr int kResetRetryCount = 3;
 constexpr int kI2COperationRetryCount = 3;
@@ -109,7 +110,11 @@ bool GT911::begin(int intPin, int rstPin, uint16_t width, uint16_t height, i2c_m
 
     uint16_t maxX = 0;
     uint16_t maxY = 0;
-    readResolution(maxX, maxY);
+    if(!readResolution(maxX, maxY))
+    {
+        APP_TOUCH_DEBUG_LOGW(kTag, "begin failed: sensor geometry is not ready");
+        return false;
+    }
     if(!clearStatus())
     {
         APP_TOUCH_DEBUG_LOGW(kTag, "begin: clear status failed after reset");
@@ -534,6 +539,10 @@ bool GT911::resetForAddress(uint8_t address)
     gpio_set_level(static_cast<gpio_num_t>(rstPin_), 1);
     vTaskDelay(pdMS_TO_TICKS(kResetReleaseHighMs));
 
+    // Synchronize INT low after address selection, then release it as input.
+    // 地址选择完成后将INT拉低同步，再释放为输入。
+    gpio_set_level(static_cast<gpio_num_t>(intPin_), 0);
+    vTaskDelay(pdMS_TO_TICKS(kResetIntSyncMs));
     gpio_set_direction(static_cast<gpio_num_t>(intPin_), GPIO_MODE_INPUT);
     vTaskDelay(pdMS_TO_TICKS(kResetAddressSettleMs));
 

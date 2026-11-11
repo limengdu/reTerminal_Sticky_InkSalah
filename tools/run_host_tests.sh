@@ -217,4 +217,8 @@ echo "[host-test] epaper_driver_test"
 bash tools/run_epaper_tests.sh
 passed_count=$((passed_count + 1))
 
-echo "[host-test] PASS ${passed_count}/33"
+echo "[host-test] gt911_startup_test"
+bash tools/run_gt911_host_test.sh --require-int-sync
+passed_count=$((passed_count + 1))
+
+echo "[host-test] PASS ${passed_count}/34"

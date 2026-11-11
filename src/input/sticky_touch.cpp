@@ -84,17 +84,19 @@ bool start_touch_controller(const char *reason)
                                                 reported_width, reported_height,
                                                 attempt)) {
             STICKY_LOGW(kTag,
-                        "touch=controller_start reason=%s attempt=%u reported_width=%u reported_height=%u result=retry",
+                        "touch=controller_start reason=%s attempt=%u resolution_read=%u reported_width=%u reported_height=%u result=retry",
                         reason, static_cast<unsigned>(attempt),
-                        static_cast<unsigned>(reported_width),
-                        static_cast<unsigned>(reported_height));
+                        static_cast<unsigned>(resolution_read),
+                        static_cast<unsigned>(resolution_read ? reported_width : 0U),
+                        static_cast<unsigned>(resolution_read ? reported_height : 0U));
             vTaskDelay(pdMS_TO_TICKS(20));
             continue;
         }
-        if (!started) {
+        if (!started || !resolution_read) {
             STICKY_LOGW(kTag,
-                        "touch=controller_start reason=%s attempt=%u result=failed",
-                        reason, static_cast<unsigned>(attempt));
+                        "touch=controller_start reason=%s attempt=%u resolution_read=%u result=failed",
+                        reason, static_cast<unsigned>(attempt),
+                        static_cast<unsigned>(resolution_read));
             return false;
         }
         break;
@@ -112,9 +114,10 @@ bool start_touch_controller(const char *reason)
     s_next_recovery_attempt_ms = 0U;
 
     STICKY_LOGI(kTag,
-                "touch=controller_ready reason=%s address=0x%02X reported_width=%u reported_height=%u map_width=%u map_height=%u fallback=%u attempt=%u result=ok",
+                "touch=controller_ready reason=%s address=0x%02X resolution_read=%u reported_width=%u reported_height=%u map_width=%u map_height=%u fallback=%u attempt=%u result=ok",
                 reason,
                 s_controller.address(),
+                static_cast<unsigned>(resolution_read),
                 static_cast<unsigned>(reported_width),
                 static_cast<unsigned>(reported_height),
                 static_cast<unsigned>(resolution.width),

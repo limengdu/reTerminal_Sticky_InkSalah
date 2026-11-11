@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Complete GT911 address selection with a 60 ms INT-low synchronization phase, and require readable, nonzero sensor geometry before marking startup ready.
+- Exercise the production touch driver in host tests, including both I2C addresses, reset synchronization, failed initialization and coordinate reports.
+
 - Initialize cold-boot touch input before Wi-Fi setup and retry unexpected controller geometry with a bounded reset sequence.
 - Cover normal, invalid-geometry, failed-start and retry-limit touch startup states with host regression tests.
 
